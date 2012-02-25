@@ -1,4 +1,4 @@
-src							-*- text -*-
+src							-*- text -*- test
 ---
 
 * Pintos core originally written by Ben Pfaff <blp@cs.stanford.edu>.

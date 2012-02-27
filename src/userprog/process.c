@@ -50,24 +50,11 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
+  printf("\nentered start process\n");
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
 
-  /*-----------------------------------------------*/
-  /* Separates arguments */
-  char *token;
-  char *save_ptr;
-  int i = 0;
-  char *arguments[100];
-
-  for (token = strtok_r (file_name_, " ", &save_ptr); token != NULL;
-       token = strtok_r (NULL, " ", &save_ptr)) {
-    arguments[i] = token;
-    i++;
-  }
-
-  /*-----------------------------------------------*/
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -75,6 +62,24 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+
+  /* Set up stack */
+  void **esp = &if_.esp;
+  esp -= 4;
+  void *count = 0;
+  void **end = esp;
+  push_args(esp, thread_current()->arguments, end, &count);
+  esp = end;
+
+  *esp = esp + 4;
+
+  esp -= 4;
+
+  *esp = count;
+
+  esp -= 8;
+  *esp = NULL;
+  /*--------------------------------------------------------------------------*/
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -91,6 +96,39 @@ start_process (void *file_name_)
   NOT_REACHED ();
 }
 
+
+
+void **
+push_args (void **esp, char *args, void **end, void **count) {
+  char *arg;
+  char *rest;
+  arg = strtok_r (args, " ", &rest);
+  if (arg == NULL) {
+    *end = NULL;
+    end -= 4;
+    return esp;
+  }
+  /*increment argument counter*/
+  *count = *count + 1;
+
+  /*find the end of the stack*/
+  size_t s = sizeof *arg;
+  *end = *end - s;
+
+  /*push the other arguments first*/
+  void ** p = push_args (esp, rest, end, count);
+
+  /*push argument*/
+  strlcpy(*p, arg, s);
+
+  /*push pointer*/
+  *end = p;
+  end -= 4;
+
+  /*return position for next argument to be pushed*/
+  return p - s;
+}
+
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
@@ -103,6 +141,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  while(1){}
   return -1;
 }
 

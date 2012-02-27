@@ -470,22 +470,6 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
-  
-  /* Separates arguments of filename */
-  char *token;
-  char *save_ptr;
-  int i = 0;
-
-  char* file_name = name;
-  
-  int j;
-  for(j = 0; j < 100; j++)
-    t->arguments[i] = "";
-
-  for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r (NULL, " ", &save_ptr)) {
-    strlcpy(t->arguments[i], token, sizeof token);    
-    i++;
-  }
 
   t->magic = THREAD_MAGIC;
 

@@ -62,13 +62,24 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+  
+  /* Separates arguments of filename */
+  char *token, *save_ptr;
+
+  for (token = strtok_r (file_name, " ", &save_ptr);
+       token != NULL;
+       token = strtok_r (NULL, " ", &save_ptr))
+  {
+    //strlcpy(arguments[i++], token, sizeof token);
+    token
+  }
 
   /* Set up stack */
   void **esp = &if_.esp;
   esp -= 4;
   void *count = 0;
   void **end = esp;
-  push_args(esp, thread_current()->arguments, end, &count);
+  push_args(esp, thread_current ()->arguments, end, &count);
   esp = end;
 
   *esp = esp + 4;
@@ -95,8 +106,6 @@ start_process (void *file_name_)
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 }
-
-
 
 void **
 push_args (void **esp, char *args, void **end, void **count) {
@@ -141,7 +150,9 @@ push_args (void **esp, char *args, void **end, void **count) {
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while(1){}
+  int i = 0;
+	while(true) {if(i == 100000) break; i++;};
+
   return -1;
 }
 
@@ -491,7 +502,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12;
       else
         palloc_free_page (kpage);
     }

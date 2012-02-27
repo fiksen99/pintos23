@@ -5,6 +5,8 @@
 #include "threads/thread.h"
 
 static void syscall_handler (struct intr_frame *);
+static void execute_exit (struct intr_frame *, uint32_t *);
+static int execute_write (int, const void *, unsigned);
 
 void
 syscall_init (void) 
@@ -15,7 +17,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f) 
 {
-  int *stackptr = f->esp;
+  uint32_t *stackptr = f->esp;
   int syscall = *stackptr;
   if( syscall == SYS_HALT )  /* ZERO arguments */
   { 
@@ -24,10 +26,31 @@ syscall_handler (struct intr_frame *f)
               syscall == SYS_REMOVE || syscall == SYS_OPEN || syscall == SYS_FILESIZE ||
               syscall == SYS_TELL || syscall == SYS_CLOSE )  /* ONE argument */
   {
-    void *arg = stackptr + 1;
+    uint32_t *arg = stackptr + 1;
     if( syscall == SYS_EXIT ) {
-      f->eax = (uint32_t)arg;
-      thread_exit();
+      execute_exit( f, arg );
+    } else if( syscall == SYS_EXEC )
+    {
+
+    } else if( syscall == SYS_WAIT )
+    {
+//      pid_t pid = (pid_t)*arg;
+//      execute_wait( (tid_t) pid );
+    } else if( syscall == SYS_REMOVE )
+    {
+
+    } else if( syscall == SYS_OPEN )
+    {
+
+    } else if( syscall == SYS_FILESIZE )
+    {
+
+    } else if( syscall == SYS_TELL )
+    {
+
+    } else /*syscall == SYS_CLOSE */
+    {
+
     }
   } else if( syscall == SYS_CREATE || syscall == SYS_SEEK )  /* TWO arguments */
   {
@@ -39,7 +62,7 @@ syscall_handler (struct intr_frame *f)
     void *buffer = *(stackptr + 2);
     unsigned size = *(stackptr + 3);
     if( syscall == SYS_WRITE ) {
-      f->eax = write(fd, buffer, size);
+      execute_write(fd, buffer, size);
     } else {
 //      read();
     }
@@ -48,8 +71,17 @@ syscall_handler (struct intr_frame *f)
   thread_exit ();*/
 }
 
+static void
+execute_exit (struct intr_frame * f, uint32_t *arg)
+{
+  f->eax = (uint32_t)arg;
+  printf("%s: exit(%d)\n", thread_name(), *arg);
+  thread_exit();
+}
+
+
 static int
-write (int fd, const void *buffer, unsigned size)
+execute_write (int fd, const void *buffer, unsigned size)
 {
   if (fd == STDOUT_FILENO )     /*write to console*/
   {

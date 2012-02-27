@@ -62,35 +62,57 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-  
-  /* Separates arguments of filename */
-  char *token, *save_ptr;
 
+/* -------------------------------------------------------------------------- */
+
+  /* Set up stack */
+
+  void *esp = if_.esp;
+  char *arguments [MAX_ARGS];
+
+  /* Separate arguments of filename */
+  char *token, *save_ptr;
+  int i = 0;
+
+  // Find out about whether esp needs to point to the top or 4 bytes down
+  // (what about popping the first value pushed to the stack)
   for (token = strtok_r (file_name, " ", &save_ptr);
        token != NULL;
        token = strtok_r (NULL, " ", &save_ptr))
   {
-    //strlcpy(arguments[i++], token, sizeof token);
-    token
+    if (i >= MAX_ARGS)
+    {
+      // FAILURE
+      return;
+    }
+    strlcpy (esp, token, sizeof token);
+    arguments[i++] = (char *) esp;
+    esp -= sizeof token;
   }
 
-  /* Set up stack */
-  void **esp = &if_.esp;
-  esp -= 4;
-  void *count = 0;
-  void **end = esp;
-  push_args(esp, thread_current ()->arguments, end, &count);
-  esp = end;
+  /* Round esp down to the nearest multiple of 4 */
+  esp -= esp % 4;
 
-  *esp = esp + 4;
+  /* Push NULL to the stack to ensure that argv [argc] = NULL */
+  *esp-- = NULL;
 
-  esp -= 4;
+  /* Push arguments in reverse order */
+  int num_arguments = i;
+  for (i--; i >= 0; i--)
+  {
+    *esp-- = arguments [i];
+  }
 
-  *esp = count;
+  /* Push a pointer to the first pointer (not sure why) */
+  *esp-- = esp;
 
-  esp -= 8;
-  *esp = NULL;
-  /*--------------------------------------------------------------------------*/
+  /* Push the number of arguments */
+  *esp-- = num_arguments;
+
+  /* Push a fake return address */
+  *esp-- = NULL;
+
+/* -------------------------------------------------------------------------- */
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -107,37 +129,6 @@ start_process (void *file_name_)
   NOT_REACHED ();
 }
 
-void **
-push_args (void **esp, char *args, void **end, void **count) {
-  char *arg;
-  char *rest;
-  arg = strtok_r (args, " ", &rest);
-  if (arg == NULL) {
-    *end = NULL;
-    end -= 4;
-    return esp;
-  }
-  /*increment argument counter*/
-  *count = *count + 1;
-
-  /*find the end of the stack*/
-  size_t s = sizeof *arg;
-  *end = *end - s;
-
-  /*push the other arguments first*/
-  void ** p = push_args (esp, rest, end, count);
-
-  /*push argument*/
-  strlcpy(*p, arg, s);
-
-  /*push pointer*/
-  *end = p;
-  end -= 4;
-
-  /*return position for next argument to be pushed*/
-  return p - s;
-}
-
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
@@ -150,9 +141,7 @@ push_args (void **esp, char *args, void **end, void **count) {
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  int i = 0;
-	while(true) {if(i == 100000) break; i++;};
-
+  while(true) {};
   return -1;
 }
 

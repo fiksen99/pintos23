@@ -50,11 +50,9 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
-  printf("\nentered start process\n");
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -63,18 +61,23 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
+  /* If load failed, quit. */
+  palloc_free_page (file_name);
+  if (!success) 
+    thread_exit ();
+
 /* -------------------------------------------------------------------------- */
+
+  printf("RUNNING OUR CODE");
 
   /* Set up stack */
 
-  void *esp = if_.esp;
-  char *arguments [MAX_ARGS];
-
   /* Separate arguments of filename */
+  char *arguments [MAX_ARGS];
   char *token, *save_ptr;
-  int i = 0;
+  uint32_t i = 0;
 
-  // Find out about whether esp needs to point to the top or 4 bytes down
+  // Find out about whether if_.esp needs to point to the top or 4 bytes down
   // (what about popping the first value pushed to the stack)
   for (token = strtok_r (file_name, " ", &save_ptr);
        token != NULL;
@@ -83,41 +86,42 @@ start_process (void *file_name_)
     if (i >= MAX_ARGS)
     {
       // FAILURE
-      return;
+      //return;
     }
-    strlcpy (esp, token, sizeof token);
-    arguments[i++] = (char *) esp;
-    esp -= sizeof token;
+    printf ("*** %p ***", if_.esp);
+    strlcpy (if_.esp, token, sizeof token);
+    arguments[i++] = (char *) if_.esp;
+    if_.esp -= sizeof token;
   }
 
-  /* Round esp down to the nearest multiple of 4 */
-  esp -= esp % 4;
+  //hex_dump (0, if_.esp-100, 100, true);
+
+  /* Round if_.esp down to the nearest multiple of 4 */
+  if_.esp -= ((uint32_t) if_.esp) % 4;
 
   /* Push NULL to the stack to ensure that argv [argc] = NULL */
-  *esp-- = NULL;
+  STACK_PUSH(if_.esp, void *, NULL);
 
   /* Push arguments in reverse order */
-  int num_arguments = i;
+  uint32_t num_arguments = i;
   for (i--; i >= 0; i--)
   {
-    *esp-- = arguments [i];
+    STACK_PUSH(if_.esp, char *, arguments [i]);
   }
 
   /* Push a pointer to the first pointer (not sure why) */
-  *esp-- = esp;
+  // Not sure whether this will work any more
+  STACK_PUSH(if_.esp, void *, if_.esp + 1);
 
   /* Push the number of arguments */
-  *esp-- = num_arguments;
+  STACK_PUSH(if_.esp, uint32_t, num_arguments);
 
   /* Push a fake return address */
-  *esp-- = NULL;
+  STACK_PUSH(if_.esp, void *, NULL);
+
+  //hex_dump (0, if_.esp-100, 100, true);
 
 /* -------------------------------------------------------------------------- */
-
-  /* If load failed, quit. */
-  palloc_free_page (file_name);
-  if (!success) 
-    thread_exit ();
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -491,7 +495,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }

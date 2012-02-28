@@ -110,12 +110,6 @@ execute_exec (struct intr_frame *f, const char ** file_name)
 {
   tid_t* id = malloc(sizeof(tid_t));
   *id = process_execute( *file_name );
-  if( *id != TID_ERROR ) {
-    struct child_status* s = malloc( sizeof(struct child_status) );
-    (*s).tid = *id;
-    sema_init( s->sema, 0 );
-    list_push_front (&(thread_current()->children), &(s->elem));
-  }
   f->eax = (uint32_t)id;
 }
 

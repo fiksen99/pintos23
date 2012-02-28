@@ -31,8 +31,6 @@ process_execute (const char *file_name)
   char *fn_copy;
   tid_t tid;
 
-
-
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -40,8 +38,12 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  char *save_ptr;
+  char *arg_name = strtok_r (file_name, " ", &save_ptr);
+  printf ("\nThe thread name is: %s\n", arg_name);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (arg_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -61,28 +63,37 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+
+
+  
+  char *token, *save_ptr;
+  token = strtok_r (file_name, " ", &save_ptr);
+  printf("\nfile_name: %s\n", file_name);
+
+  success = load (token, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
-  if (!success) 
+  if (!success)
+  {
+    palloc_free_page (file_name);
     thread_exit ();
+  }
 
 /* -------------------------------------------------------------------------- */
 
-  printf("RUNNING OUR CODE\n");
-  printf("%s\n", file_name);
+  printf("\nRUNNING OUR CODE\n");
+  printf("\nThe command entered is: %s\n", file_name);
 
   /* Set up stack */
 
   /* Separate arguments of filename */
   char *arguments [MAX_ARGS];
-  char *token, *save_ptr;
-  uint32_t i = 0;
+  //char *token, *save_ptr;
+  int32_t i = 0;
 
   // Find out about whether if_.esp needs to point to the top or 4 bytes down
   // (what about popping the first value pushed to the stack)
-  for (token = strtok_r (file_name, " ", &save_ptr);
+  for (;
        token != NULL;
        token = strtok_r (NULL, " ", &save_ptr))
   {
@@ -91,12 +102,13 @@ start_process (void *file_name_)
       // FAILURE
       //return;
     }
-    printf ("*** %p ***", if_.esp);
+    printf ("*** %p ***\n", if_.esp);
     strlcpy (if_.esp, token, sizeof token);
     arguments[i++] = (char *) if_.esp;
     if_.esp -= sizeof token;
   }
 
+  //printf("\n");
   //hex_dump (0, if_.esp-100, 100, true);
 
   /* Round if_.esp down to the nearest multiple of 4 */
@@ -122,7 +134,9 @@ start_process (void *file_name_)
   /* Push a fake return address */
   STACK_PUSH(if_.esp, void *, NULL);
 
-  //hex_dump (0, if_.esp-100, 100, true);
+  //qhex_dump (0, if_.esp-100, 100, true);
+
+  palloc_free_page (file_name);
 
 /* -------------------------------------------------------------------------- */
 

@@ -98,7 +98,7 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
     struct list children;               /* List of child processes */
-	  struct thread * parent;				      /* Pointer to parent thread */
+	struct thread * parent;				/* Pointer to parent thread */
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -108,7 +108,7 @@ struct child_status
 {
   tid_t tid;
   int status;
-  struct semaphore running;
+  struct semaphore* sema;
   struct list_elem elem;
 };
 

@@ -99,10 +99,7 @@ process_wait (tid_t child_tid)
     if( child->tid == child_tid ) break; 
   }
   if ( e == list_end (&(curr->children)) ) return -1; //NOT a child process
-  while(child->running == true)
-  {
-    //DO NOTHING - busy wait TODO
-  }
+  sema_down( child->sema );
   // remove thread from parent's children - cant wait for again.
   list_remove( e );
   return child->status;

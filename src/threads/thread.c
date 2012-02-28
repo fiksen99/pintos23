@@ -296,7 +296,17 @@ thread_exit (void)
 #ifdef USERPROG
   process_exit ();
 #endif
-
+  struct thread *current = thread_current();
+  struct list parents_children = current->parent->children;
+  struct list_elem *e;
+  struct child_status *s = NULL;
+  for (e = list_begin (&parents_children); e != list_end (&parents_children);
+       e = list_next (e))
+  {
+    s = list_entry (e, struct child_status, elem);
+	  if ( s->tid == current->tid ) break;
+  }
+  sema_up( s->sema );
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */

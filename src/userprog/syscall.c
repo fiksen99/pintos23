@@ -15,6 +15,7 @@
 #include "threads/thread.h"
 #include "threads/malloc.h"
 #include "process.h"
+#include "threads/synch.h"
 
 static void syscall_handler (struct intr_frame *);
 static void execute_exit (struct intr_frame *, int *);
@@ -95,12 +96,10 @@ execute_exit (struct intr_frame * f, int *arg)
   for (e = list_begin (&parents_children); e != list_end (&parents_children);
        e = list_next (e))
   {
-      s = list_entry (e, struct child_status, elem);
-      if ( s->tid == current->tid ) break;
+    s = list_entry (e, struct child_status, elem);
+	  if ( s->tid == current->tid ) break;
   }
-      //FIX SYNCHRONISATION!!!
   s->status = *arg;
-  s->running = false;
   f->eax = (uint32_t)arg;
   printf("%s: exit(%d)\n", thread_name(), *arg);
   thread_exit();
@@ -112,8 +111,10 @@ execute_exec (struct intr_frame *f, const char ** file_name)
   tid_t* id = malloc(sizeof(tid_t));
   *id = process_execute( *file_name );
   if( *id != TID_ERROR ) {
-    struct child_status s = { .tid = *id, .running = true };
-    list_push_front (&(thread_current()->children), &s.elem);
+    struct child_status* s = malloc( sizeof(struct child_status) );
+    (*s).tid = *id;
+    sema_init( s->sema, 0 );
+    list_push_front (&(thread_current()->children), &(s->elem));
   }
   f->eax = (uint32_t)id;
 }

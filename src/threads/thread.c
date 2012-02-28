@@ -12,6 +12,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include <list.h>
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -186,6 +187,10 @@ thread_create (const char *name, int priority,
   tid = t->tid = allocate_tid ();
   t->parent = thread_current();
   list_init( &(t->children) );
+  struct child_status* s = malloc( sizeof(struct child_status) );
+  s->tid = tid;
+  sema_init( &s->sema, 0 );
+  list_push_front (&(thread_current()->children), &(s->elem));
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
@@ -306,7 +311,7 @@ thread_exit (void)
     s = list_entry (e, struct child_status, elem);
 	  if ( s->tid == current->tid ) break;
   }
-  sema_up( s->sema );
+  sema_up( &s->sema );
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
@@ -483,6 +488,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  list_init (&t->children);
 
   t->magic = THREAD_MAGIC;
 

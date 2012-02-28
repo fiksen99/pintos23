@@ -96,9 +96,9 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    struct list children;               /* List of child processes */
-	  struct thread * parent;				/* Pointer to parent thread */
 #endif
+    struct list children;               /* List of child processes */
+	  struct thread * parent;				      /* Pointer to parent thread */
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -108,7 +108,7 @@ struct child_status
 {
   tid_t tid;
   int status;
-  bool running;
+  struct semaphore running;
   struct list_elem elem;
 };
 

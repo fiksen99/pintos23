@@ -87,10 +87,25 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  while(true){}
-  return -1;
+  struct thread* curr = thread_current();
+  struct list_elem *e;
+  struct child_status* child;
+  // find child_status for tid
+  for (e = list_begin (&(curr->children)) ; e != list_end (&(curr->children)) ; e = list_next (e))
+  {
+    child = list_entry (e, struct child_status, elem);
+    if( child->tid == child_tid ) break; 
+  }
+  if ( e == list_end (&(curr->children)) ) return -1; //NOT a child process
+  while(child->running == true)
+  {
+    //DO NOTHING - busy wait TODO
+  }
+  // remove thread from parent's children - cant wait for again.
+  list_remove( e );
+  return child->status;
 }
 
 /* Free the current process's resources. */

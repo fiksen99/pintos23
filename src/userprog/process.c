@@ -31,6 +31,8 @@ process_execute (const char *file_name)
   char *fn_copy;
   tid_t tid;
 
+
+
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -68,7 +70,8 @@ start_process (void *file_name_)
 
 /* -------------------------------------------------------------------------- */
 
-  printf("RUNNING OUR CODE");
+  printf("RUNNING OUR CODE\n");
+  printf("%s\n", file_name);
 
   /* Set up stack */
 

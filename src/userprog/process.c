@@ -26,122 +26,124 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name) 
+process_execute (const char *command) 
 {
-  char *fn_copy;
-  tid_t tid;
-
-  /* Make a copy of FILE_NAME.
+  /* Make a copy of command.
      Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
+  char *command_copy = palloc_get_page (0);
+  if (command_copy == NULL)
     return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy (command_copy, command, PGSIZE);
 
-  char *save_ptr;
-  char *arg_name = strtok_r (file_name, " ", &save_ptr);
-  printf ("\nThe thread name is: %s\n", arg_name);
+  char **arguments = palloc_get_page (0);
+  if (arguments == 0)
+  {
+    palloc_free_page (command_copy);
+    return TID_ERROR;
+  }
 
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (arg_name, PRI_DEFAULT, start_process, fn_copy);
+  int32_t i = 0;
+  char *token, *save_ptr;
+  for (token = strtok_r (command_copy, " ", &save_ptr);
+       token != NULL;
+       token = strtok_r (NULL, " ", &save_ptr), i++)
+  {
+    if (i >= MAX_ARGS)
+    {
+      palloc_free_page (command_copy);
+      palloc_free_page (arguments);
+      return TID_ERROR;
+    }
+    arguments [i] = token;
+  }
+  arguments [i] = NULL;
+
+  /* Create a new thread to execute the command. */
+  tid_t tid = thread_create (arguments [0], PRI_DEFAULT, start_process,
+                             arguments);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+  {
+    palloc_free_page (command_copy);
+    palloc_free_page (arguments);
+  }
   return tid;
 }
 
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *arguments_)
 {
-  char *file_name = file_name_;
-  struct intr_frame if_;
-  bool success;
+  char **arguments = arguments_;
+  char *command = arguments [0];
 
   /* Initialize interrupt frame and load executable. */
+  struct intr_frame if_;
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  char *token, *save_ptr;
-  token = strtok_r (file_name, " ", &save_ptr);
-  printf("\nfile_name: %s\n", file_name);
-
-  success = load (token, &if_.eip, &if_.esp);
+  bool success = load (arguments [0], &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   if (!success)
   {
-    palloc_free_page (file_name);
+    palloc_free_page (arguments [0]);
+    palloc_free_page (arguments);
     thread_exit ();
   }
 
-/* -------------------------------------------------------------------------- */
-
-  printf("\nRUNNING OUR CODE\n");
-  printf("\nThe command entered is: %s\n", file_name);
-
   /* Set up stack */
 
-  /* Separate arguments of filename */
-  char *arguments [MAX_ARGS];
-  arguments [0] = NULL;
-  //char *token, *save_ptr;
-  int32_t i = 0;
-
-  // Find out about whether if_.esp needs to point to the top or 4 bytes down
-  // (what about popping the first value pushed to the stack)
-  for (token = strtok_r (NULL, " ", &save_ptr);
-       token != NULL;
-       token = strtok_r (NULL, " ", &save_ptr))
+  /* Store all arguments on the stack */
+  int32_t i;
+  for (i = 0; arguments [i] != NULL; i++)
   {
-    if (i >= MAX_ARGS)
+    char *argument = arguments [i];
+    if_.esp -= strlen (argument);
+    if (i != 0)
     {
-      // FAILURE
-      //return;
+      if_.esp--;
     }
-    //printf ("*** %s *** %p *** %d *** %d ***\n", token, if_.esp, sizeof token, strlen (token));
-    strlcpy (if_.esp - strlen (token), token, strlen (token) + 1);
-    arguments [i++] = (char *) (if_.esp - strlen (token));
-    if_.esp -= strlen (token) + 1;
+    strlcpy (if_.esp, argument, strlen (argument) + 1);
+    arguments [i] = if_.esp;
   }
 
-  //token = strtok_r (NULL, " ", &save_ptr);
-  //strlcpy (if_.esp - strlen (token), token, strlen (token) + 1);
-
-  char *n;
-  for (n = PHYS_BASE; n > PHYS_BASE - 30; n--)
-  {
-    printf ("%p: %c\n", n, *n);
-  }
+  palloc_free_page (command);
 
   /* Round if_.esp down to the nearest multiple of 4 */
-//  if_.esp -= ((uint32_t) if_.esp) % 4;
+  if_.esp -= ((uint32_t) if_.esp) % 4;
 
   /* Push NULL to the stack to ensure that argv [argc] = NULL */
-//  STACK_PUSH(if_.esp, void *, NULL);
+  STACK_PUSH (if_.esp, void *, NULL);
 
   /* Push arguments in reverse order */
-/*  uint32_t num_arguments = i;
+  uint32_t argc = i;
   for (i--; i >= 0; i--)
   {
-    STACK_PUSH(if_.esp, char *, arguments [i]);
-  }*/
+    STACK_PUSH (if_.esp, char *, arguments [i]);
+  }
 
-  /* Push a pointer to the first pointer (not sure why) */
-  // Not sure whether this will work any more
-//  STACK_PUSH(if_.esp, void *, if_.esp + 1);
+  palloc_free_page (arguments);
 
-  /* Push the number of arguments */
-//  STACK_PUSH(if_.esp, uint32_t, num_arguments);
+  /* Push argv */
+  void *argv = if_.esp;
+  STACK_PUSH (if_.esp, void *, argv);
+
+  /* Push argc */
+  STACK_PUSH (if_.esp, uint32_t, argc);
 
   /* Push a fake return address */
-//  STACK_PUSH(if_.esp, void *, NULL);
+  STACK_PUSH (if_.esp, void *, NULL);
 
-  palloc_free_page (file_name);
-
-/* -------------------------------------------------------------------------- */
+  /* ***************************** */
+  /*void **p;
+  for (p = if_.esp; p < PHYS_BASE; p++)
+  {
+    printf ("%p: %p\n", p, *p);
+  }*/
+  /* ***************************** */
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

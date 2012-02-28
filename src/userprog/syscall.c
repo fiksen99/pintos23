@@ -31,7 +31,7 @@ syscall_handler (struct intr_frame *f)
       execute_exit( f, arg );
     } else if( syscall == SYS_EXEC )
     {
-
+      
     } else if( syscall == SYS_WAIT )
     {
 //      pid_t pid = (pid_t)*arg;
@@ -54,12 +54,12 @@ syscall_handler (struct intr_frame *f)
     }
   } else if( syscall == SYS_CREATE || syscall == SYS_SEEK )  /* TWO arguments */
   {
-    void *arg1 = stackptr + 1;
-    unsigned *arg2 = stackptr + 2;
+//    void *arg1 = stackptr + 1;
+//    unsigned *arg2 = stackptr + 2;
   } else if( syscall == SYS_READ || syscall == SYS_WRITE )  /* THREE arguments */
   {
     int fd = *(stackptr + 1);
-    void *buffer = *(stackptr + 2);
+    void *buffer = (void*)(stackptr + 2);
     unsigned size = *(stackptr + 3);
     if( syscall == SYS_WRITE ) {
       execute_write(fd, buffer, size);
@@ -74,6 +74,18 @@ syscall_handler (struct intr_frame *f)
 static void
 execute_exit (struct intr_frame * f, uint32_t *arg)
 {
+  struct thread *current = thread_current();
+  struct list parents_children = current->parent->children;
+  struct list_elem *e;
+  struct child_status *s;
+  for (e = list_begin (&parents_children); e != list_end (&parents_children);
+       e = list_next (e))
+  {
+      s = list_entry (e, struct child_status, elem);
+      if ( s->tid == current->tid ) break;
+  }
+      //FIX SYNCHRONISATION!!!
+  s->status = *arg;
   f->eax = (uint32_t)arg;
   printf("%s: exit(%d)\n", thread_name(), *arg);
   thread_exit();
@@ -83,6 +95,8 @@ execute_exit (struct intr_frame * f, uint32_t *arg)
 static int
 execute_write (int fd, const void *buffer, unsigned size)
 {
+  if (fd == STDIN_FILENO )
+    return 0;
   if (fd == STDOUT_FILENO )     /*write to console*/
   {
     putbuf( buffer, size );

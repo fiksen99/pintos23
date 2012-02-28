@@ -108,6 +108,7 @@ struct child_status
 {
   tid_t tid;
   int status;
+  bool running;
   struct list_elem elem;
 };
 

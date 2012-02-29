@@ -139,11 +139,11 @@ start_process (void *arguments_)
   STACK_PUSH (if_.esp, void *, NULL);
 
   /* ***************************** */
-  /*void **p;
+  void **p;
   for (p = if_.esp; p < PHYS_BASE; p++)
   {
     printf ("%p: %p\n", p, *p);
-  }*/
+  }
   /* ***************************** */
 
   /* Start the user process by simulating a return from an

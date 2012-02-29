@@ -29,11 +29,12 @@ static int execute_write (int, const void *, unsigned);
 static void execute_create (struct intr_frame *, const char *, unsigned);
 static void execute_remove (struct intr_frame *, const char *);
 static void execute_open (struct intr_frame *, const char *);
-static void execute_filesize (struct intr_frame *, int) UNUSED;
+static void execute_filesize (struct intr_frame *, int);
 static void execute_read (struct intr_frame *, int, void *, unsigned) UNUSED;
-static void execute_seek (int, unsigned) UNUSED;
+static void execute_seek (int, unsigned);
 static void execute_tell (struct intr_frame *, int) UNUSED;
 static void execute_close (int) UNUSED;
+static struct file * find_file_from_fd (int);
 
 void
 syscall_init (void) 
@@ -72,13 +73,13 @@ syscall_handler (struct intr_frame *f)
       execute_wait( f, (tid_t)*arg );
     } else if( syscall == SYS_REMOVE )
     {
-      execute_remove(f, (const char *)arg);
+      execute_remove(f, (char *)arg);
     } else if( syscall == SYS_OPEN )
     {
-
+      execute_open (f, (char *) arg);
     } else if( syscall == SYS_FILESIZE )
     {
-
+      execute_filesize (f, (int) arg);
     } else if( syscall == SYS_TELL )
     {
 
@@ -91,14 +92,16 @@ syscall_handler (struct intr_frame *f)
     void *arg1 = stackptr + 1;
     unsigned *arg2 = stackptr + 2;
     if (syscall == SYS_CREATE)
-      execute_create(f, (char *)arg1, *arg2);
+      execute_create (f, (char *)arg1, *arg2);
+    if (syscall == SYS_SEEK)
+      execute_seek ((int) arg1, (unsigned) arg2);
   } else if( syscall == SYS_READ || syscall == SYS_WRITE )  /* THREE arguments */
   {
     int fd = *(stackptr + 1);
     void *buffer = (void*)(stackptr + 2);
     unsigned size = *(stackptr + 3);
     if( syscall == SYS_WRITE ) {
-      execute_write(fd, buffer, size);
+      execute_write (fd, buffer, size);
     } else {
 //      read();
     }
@@ -196,19 +199,21 @@ execute_open (struct intr_frame *f, const char *file)
   //WHAT DO I DO HERE?
 }
 
+/* Stores the size of the file opened in bytes into eax. If file does not exist,
+   stores 0 in eax. */
 static void
-execute_filesize (struct intr_frame *f UNUSED, int fd UNUSED)
+execute_filesize (struct intr_frame *f, int fd)
 {
   struct file *file;
-  
-  int *filesize;
+  file = find_file_from_fd(fd);
+  int *filesize = 0;
   if(file == NULL)
   {
-    *filesize = 0;
     f->eax = (uint32_t) filesize;
+    return;
   }
-  //do file_length
-  //eax = file_length
+  *filesize = (int) file_length (file);
+  f->eax = (uint32_t) filesize;
 }
 
 static void
@@ -217,10 +222,13 @@ execute_read (struct intr_frame *f UNUSED, int fd UNUSED, void *buffer UNUSED, u
 
 }
 
+/* Changes the next byte to be read or written in the open file fd to position */
 static void
-execute_seek (int fd UNUSED, unsigned position UNUSED)
+execute_seek (int fd, unsigned position)
 {
-
+  struct file *file;
+  file = find_file_from_fd (fd);
+  file_seek (file, position);
 }
 
 static void
@@ -233,4 +241,11 @@ static void
 execute_close (int fd UNUSED)
 {
 
-} 
+}
+
+static struct file *
+find_file_from_fd (int fd UNUSED)
+{
+  struct file *file = NULL;
+  return file;
+}

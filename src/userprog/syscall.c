@@ -16,13 +16,14 @@
 #include "threads/malloc.h"
 #include "process.h"
 #include "threads/synch.h"
+#include "filesys/filesys.h"
 
 static void syscall_handler (struct intr_frame *);
 static void execute_exit (struct intr_frame *, int *);
 static void execute_exec (struct intr_frame *, const char **);
 static void execute_wait (struct intr_frame *, tid_t);
 static int execute_write (int, const void *, unsigned);
-static bool execute_create (const char *, unsigned);
+static void execute_create (struct intr_frame *, const char *, unsigned);
 
 void
 syscall_init (void) 
@@ -70,8 +71,10 @@ syscall_handler (struct intr_frame *f)
     }
   } else if( syscall == SYS_CREATE || syscall == SYS_SEEK )  /* TWO arguments */
   {
-//    void *arg1 = stackptr + 1;
-//    unsigned *arg2 = stackptr + 2;
+    void *arg1 = stackptr + 1;
+    unsigned *arg2 = stackptr + 2;
+    if (syscall == SYS_CREATE)
+      execute_create(f, (char *)arg1, *arg2);
   } else if( syscall == SYS_READ || syscall == SYS_WRITE )  /* THREE arguments */
   {
     int fd = *(stackptr + 1);
@@ -135,11 +138,10 @@ execute_write (int fd, const void *buffer, unsigned size)
   return 0;
 }
 
-static bool
-execute_create (const char *file, unsigned initial_size)
+static void
+execute_create (struct intr_frame *f, const char *file, unsigned initial_size)
 {
-  if (file = NULL)
-    // exit
-  else
-    filesys_create (file, initial_size);
+  bool *success = malloc(sizeof (bool));
+  *success = filesys_create (file, initial_size);
+  f->eax = (uint32_t)success;
 }

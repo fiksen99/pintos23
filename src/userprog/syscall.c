@@ -24,6 +24,7 @@ static void execute_exec (struct intr_frame *, const char **);
 static void execute_wait (struct intr_frame *, tid_t);
 static int execute_write (int, const void *, unsigned);
 static void execute_create (struct intr_frame *, const char *, unsigned);
+static void execute_remove (struct intr_frame *, const char *);
 
 void
 syscall_init (void) 
@@ -143,5 +144,13 @@ execute_create (struct intr_frame *f, const char *file, unsigned initial_size)
 {
   bool *success = malloc(sizeof (bool));
   *success = filesys_create (file, initial_size);
+  f->eax = (uint32_t)success;
+}
+
+static void
+execute_remove (struct intr_frame *f, const char *file)
+{
+  bool *success = malloc(sizeof (bool));
+  *success = filesys_remove (file);
   f->eax = (uint32_t)success;
 }

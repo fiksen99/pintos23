@@ -22,6 +22,7 @@ static void execute_exit (struct intr_frame *, int *);
 static void execute_exec (struct intr_frame *, const char **);
 static void execute_wait (struct intr_frame *, tid_t);
 static int execute_write (int, const void *, unsigned);
+static bool execute_create (const char *, unsigned);
 
 void
 syscall_init (void) 
@@ -134,4 +135,11 @@ execute_write (int fd, const void *buffer, unsigned size)
   return 0;
 }
 
-
+static bool
+execute_create (const char *file, unsigned initial_size)
+{
+  if (file = NULL)
+    // exit
+  else
+    filesys_create (file, initial_size);
+}

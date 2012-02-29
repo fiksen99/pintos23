@@ -168,6 +168,7 @@ printf("LOADS\n\n\n");
 int
 process_wait (tid_t child_tid) 
 {
+  /*
   struct thread* curr = thread_current();
   struct list_elem *e;
   struct child_status* child;
@@ -182,6 +183,9 @@ process_wait (tid_t child_tid)
   // remove thread from parent's children - cant wait for again.
   list_remove( e );
   return child->status;
+  */
+  while (1) {}
+  return -1;
 }
 
 /* Free the current process's resources. */

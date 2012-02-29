@@ -58,7 +58,7 @@ process_execute (const char *command)
     arguments [i] = token;
   }
   arguments [i] = NULL;
-
+  printf("command name: %s\n", arguments[0]);
   /* Create a new thread to execute the command. */
   tid_t tid = thread_create (arguments [0], PRI_DEFAULT, start_process,
                              arguments);
@@ -84,9 +84,9 @@ start_process (void *arguments_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-
-  bool success = load (arguments [0], &if_.eip, &if_.esp);
-
+  //printf("command: %s",command);
+  bool success = load (command, &if_.eip, &if_.esp);
+printf("LOADS\n\n\n");
   /* If load failed, quit. */
   if (!success)
   {
@@ -94,7 +94,7 @@ start_process (void *arguments_)
     palloc_free_page (arguments);
     thread_exit ();
   }
-
+//printf("STARTS SETTING UP STACK\n\n\n");
   /* Set up stack */
 
   /* Store all arguments on the stack */
@@ -109,7 +109,7 @@ start_process (void *arguments_)
     }
     strlcpy (if_.esp, argument, strlen (argument) + 1);
     arguments [i] = if_.esp;
-  }
+  }//printf("stores arguments on stack\n\n\n");
 
   palloc_free_page (command);
 
@@ -139,13 +139,13 @@ start_process (void *arguments_)
   STACK_PUSH (if_.esp, void *, NULL);
 
   /* ***************************** */
-  /*void **p;
+  void **p;
   for (p = if_.esp; p < PHYS_BASE; p++)
   {
     printf ("%p: %p\n", p, *p);
-  }*/
+  }
   /* ***************************** */
-
+//printf("about to jump to program\n\n");
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -307,12 +307,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
-
+printf("REACHES START_LOAD\n\n\n");
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
+printf("PROCESS_ACTIVATE CALLED BEFORE\n\n\n");
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -322,6 +323,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+printf("FILE IS OPEN\n\n\n");
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -335,18 +337,22 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+printf("VALID EXECUTABLE\n\n\n");
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
     {
+printf("1\n");
       struct Elf32_Phdr phdr;
 
       if (file_ofs < 0 || file_ofs > file_length (file))
         goto done;
+printf("2\n");
       file_seek (file, file_ofs);
 
       if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
         goto done;
+printf("3\n");
       file_ofs += sizeof phdr;
       switch (phdr.p_type) 
         {
@@ -376,6 +382,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = page_offset + phdr.p_filesz;
                   zero_bytes = (ROUND_UP (page_offset + phdr.p_memsz, PGSIZE)
                                 - read_bytes);
+printf("4\n");
                 }
               else 
                 {
@@ -384,20 +391,29 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
+printf("5\n");
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
             }
-          else
+          else  
+            {
+printf("6\n");
             goto done;
+            }
+printf("7\n");
           break;
         }
     }
 
+printf("READ PROGRAM HEADERS\n\n\n");
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp)) {
     goto done;
+printf("REACHES START_LOAD\n\n\n");
+	}
 
+printf("STACK SET UP CORRECTLY\n\n\n");
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 

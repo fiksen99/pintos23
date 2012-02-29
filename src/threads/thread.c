@@ -16,6 +16,7 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+#include "devices/shutdown.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -302,19 +303,25 @@ thread_exit (void)
   process_exit ();
 #endif
   struct thread *current = thread_current();
-  struct list parents_children = current->parent->children;
-  struct list_elem *e;
-  struct child_status *s = NULL;
-  for (e = list_begin (&parents_children); e != list_end (&parents_children);
-       e = list_next (e))
-  {
-    s = list_entry (e, struct child_status, elem);
-	  if ( s->tid == current->tid ) break;
+  bool is_main_thread = current->tid == 1;
+//  printf( "\n\n\ncurrent thread: %s\ntid:%d\n\n\nparent thread: %s\n\n\n", thread_name(),current->tid,current->parent->name);
+  if(!is_main_thread ) {
+    struct list parents_children = current->parent->children;
+    struct list_elem *e;
+    struct child_status *s = NULL;
+    for (e = list_begin (&parents_children); e != list_end (&parents_children);
+         e = list_next (e))
+    {
+      s = list_entry (e, struct child_status, elem);
+	    if ( s->tid == current->tid ) break;
+    }
+    sema_up( &s->sema );
   }
-  sema_up( &s->sema );
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
+  if(is_main_thread)
+    shutdown_power_off();
   intr_disable ();
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;

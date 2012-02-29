@@ -135,7 +135,7 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
   if (pte != NULL && (*pte & PTE_P) != 0)
     return pte_get_page (*pte) + pg_ofs (uaddr);
   else
-    return NULL;
+    thread_exit();
 }
 
 /* Marks user virtual page UPAGE "not present" in page

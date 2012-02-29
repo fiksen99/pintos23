@@ -36,18 +36,14 @@ static void execute_tell (struct intr_frame *, int) UNUSED;
 static void execute_close (int) UNUSED;
 static struct file * find_file_from_fd (int);
 
+static struct list fd_list;
+
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  list_init (&fd_list);
 }
-
-/* Implementation for file descriptor mapping */
-struct fd_elems
-{
-  int fd;
-  struct file *file;
-};
 
 static void
 syscall_handler (struct intr_frame *f) 
@@ -231,10 +227,16 @@ execute_seek (int fd, unsigned position)
   file_seek (file, position);
 }
 
+/* eax = the position of the next byte to be read or written in the open file fd
+   expressed in bytes from the beginning of the file */
 static void
 execute_tell (struct intr_frame *f UNUSED, int fd UNUSED)
 {
-
+  struct file *file;
+  file = find_file_from_fd (fd);
+  unsigned *tell;
+  *tell = (unsigned) file_tell (file);
+  f->eax = (uint32_t) tell;
 }
 
 static void
@@ -244,8 +246,14 @@ execute_close (int fd UNUSED)
 }
 
 static struct file *
-find_file_from_fd (int fd UNUSED)
+find_file_from_fd (int fd)
 {
-  struct file *file = NULL;
-  return file;
+  struct list_elem *e;
+  for(e = list_begin (&fd_list); e != list_back(&fd_list); e = list_next(e))
+  {
+    struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
+    if (fd_elem->fd == fd)
+      return fd_elem->file;
+  }
+  return NULL;
 }

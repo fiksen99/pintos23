@@ -139,12 +139,12 @@ printf("LOADS\n\n\n");
   STACK_PUSH (if_.esp, void *, NULL);
 
   /* ***************************** */
-  void **p;
+/*  void **p;
   for (p = if_.esp; p < PHYS_BASE; p++)
   {
     printf ("%p: %p\n", p, *p);
   }
-  /* ***************************** */
+*/  /* ***************************** */
 //printf("about to jump to program\n\n");
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -168,7 +168,6 @@ printf("LOADS\n\n\n");
 int
 process_wait (tid_t child_tid) 
 {
-  /*
   struct thread* curr = thread_current();
   struct list_elem *e;
   struct child_status* child;
@@ -183,9 +182,6 @@ process_wait (tid_t child_tid)
   // remove thread from parent's children - cant wait for again.
   list_remove( e );
   return child->status;
-  */
-  while (1) {}
-  return -1;
 }
 
 /* Free the current process's resources. */

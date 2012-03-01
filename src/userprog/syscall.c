@@ -33,7 +33,7 @@ static void execute_filesize (struct intr_frame *, int);
 static void execute_read (struct intr_frame *, int, void *, unsigned) UNUSED;
 static void execute_seek (int, unsigned);
 static void execute_tell (struct intr_frame *, int) UNUSED;
-static void execute_close (int) UNUSED;
+static void execute_close (int);
 static struct file * find_file_from_fd (int);
 
 static struct list fd_list;
@@ -80,9 +80,9 @@ syscall_handler (struct intr_frame *f)
     } else if( syscall == SYS_TELL )
     {
 
-    } else /*syscall == SYS_CLOSE */
+    } else if (syscall == SYS_CLOSE)
     {
-
+      execute_close ((int) arg);
     }
   } else if( syscall == SYS_CREATE || syscall == SYS_SEEK )  /* TWO arguments */
   {
@@ -219,9 +219,34 @@ execute_filesize (struct intr_frame *f, int fd)
 }
 
 static void
-execute_read (struct intr_frame *f UNUSED, int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED)
+execute_read (struct intr_frame *f, int fd, void *buffer, unsigned size)
 {
-
+  struct file *file;
+  int i;
+  int *bytes_read = malloc(sizeof (int));
+  if (fd == STDIN_FILENO) //reads input from the keyboard
+  {
+    for (i = 0; i != (int) size; i++)
+      *(uint8_t *) (buffer + 1) = input_getc ();
+    *bytes_read = size;
+    f->eax = (uint32_t) bytes_read;
+    return;
+  }
+  if (fd == STDOUT_FILENO) // file cannot be read, so eax = -1
+  {
+    *bytes_read = -1;
+    f->eax = (uint32_t) bytes_read;
+    return;
+  }
+  file = find_file_from_fd (fd);
+  if (file == NULL || !file)
+  {
+    *bytes_read = -1;
+    f->eax = (uint32_t) bytes_read;
+    return;
+  }
+  *bytes_read = file_read (file, buffer, size);
+  f->eax = (uint32_t) bytes_read;
 }
 
 /* Changes the next byte to be read or written in the open file fd to position */

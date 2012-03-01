@@ -189,8 +189,9 @@ thread_create (const char *name, int priority,
   t->parent = thread_current();
   list_init( &(t->children) );
   struct child_status* s = malloc( sizeof(struct child_status) );
-  s->tid = tid;
   sema_init( &s->sema, 0 );
+  s->tid = tid;
+  s->status = -1; //will only be changed if exited by user process, if kernel exits, remains -1
   list_push_front (&(thread_current()->children), &(s->elem));
 
   /* Prepare thread for first run by initializing its stack.
@@ -303,8 +304,7 @@ thread_exit (void)
   process_exit ();
 #endif
   struct thread *current = thread_current();
-  bool is_main_thread = current->tid == 1;
-//  printf( "\n\n\ncurrent thread: %s\ntid:%d\n\n\nparent thread: %s\n\n\n", thread_name(),current->tid,current->parent->name);
+  bool is_main_thread = current == initial_thread;
   if(!is_main_thread ) {
     struct list parents_children = current->parent->children;
     struct list_elem *e;
@@ -315,6 +315,7 @@ thread_exit (void)
       s = list_entry (e, struct child_status, elem);
 	    if ( s->tid == current->tid ) break;
     }
+    printf("%s: exit(%d)\n", current->name, s->status);
     sema_up( &s->sema );
   }
   /* Remove thread from all threads list, set our status to dying,
@@ -617,3 +618,9 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+tid_t
+get_initial_thread_tid (void)
+{
+  return initial_thread->tid;
+}

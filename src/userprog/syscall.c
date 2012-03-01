@@ -74,7 +74,7 @@ syscall_handler (struct intr_frame *f)
   } else if( syscall == SYS_READ || syscall == SYS_WRITE )  /* THREE arguments */
   {
     int fd = *(stackptr + 1);
-    void *buffer = (void*)(stackptr + 2);
+    void *buffer = (void*)*(stackptr + 2);
     unsigned size = *(stackptr + 3);
     if( syscall == SYS_WRITE ) {
       execute_write(fd, buffer, size);

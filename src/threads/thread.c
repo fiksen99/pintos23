@@ -189,8 +189,9 @@ thread_create (const char *name, int priority,
   t->parent = thread_current();
   list_init( &(t->children) );
   struct child_status* s = malloc( sizeof(struct child_status) );
-  s->tid = tid;
   sema_init( &s->sema, 0 );
+  s->tid = tid;
+  s->status = -1; //will only be changed if exited by user process, if kernel exits, remains -1
   list_push_front (&(thread_current()->children), &(s->elem));
 
   /* Prepare thread for first run by initializing its stack.
@@ -315,6 +316,8 @@ thread_exit (void)
       s = list_entry (e, struct child_status, elem);
 	    if ( s->tid == current->tid ) break;
     }
+  	if( s->status == NULL ) //terminated by kernel
+		  s->s
     sema_up( &s->sema );
   }
   /* Remove thread from all threads list, set our status to dying,

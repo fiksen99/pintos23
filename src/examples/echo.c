@@ -5,11 +5,10 @@
 int
 main (int argc, char **argv)
 {
-//  int i;
+  int i;
 
-//  for (i = 0; i < argc; i++)
-//    printf ("%s ", argv[i]);
-//  printf ("\n");
-printf("program echo: success!");
+  for (i = 0; i < argc; i++)
+    printf ("%s ", argv[i]);
+  printf ("\n");
   return EXIT_SUCCESS;
 }

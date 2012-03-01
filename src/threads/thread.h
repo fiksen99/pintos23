@@ -149,4 +149,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* Returns the tid of the initial thread */
+tid_t get_initial_thread_tid (void);
+
 #endif /* threads/thread.h */

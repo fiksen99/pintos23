@@ -54,6 +54,7 @@ static void
 syscall_handler (struct intr_frame *f) 
 {
   uint32_t *stackptr = f->esp;
+  printf("%d",stackptr);
   int syscall = *stackptr;
   uint32_t result;  //return value stored in eax
   if( syscall == SYS_HALT )  /* ZERO arguments */
@@ -118,8 +119,6 @@ syscall_handler (struct intr_frame *f)
     }
   }
   f->eax = result;
-/*  printf ("system call!\n");
-  thread_exit ();*/
 }
 
 /* Executes the halt system call. Terminates pintos by calling shutdown_power_off () */
@@ -147,7 +146,6 @@ execute_exit (struct intr_frame *f, int *arg)
   }
   s->status = *arg;
   f->eax = (uint32_t)arg;
-  printf("%s: exit(%d)\n", thread_name(), *arg);
   thread_exit();
 }
 
@@ -161,8 +159,7 @@ execute_exec (const char * file_name)
 static uint32_t
 execute_wait (tid_t tid)
 {
-  tid_t* id = malloc(sizeof(tid_t));
-  *id = process_wait( tid );
+  tid_t id = process_wait( tid );
   return (uint32_t)id;
 }
 

@@ -14,28 +14,31 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/malloc.h"
-#include "process.h"
+#include "userprog/process.h"
 #include "threads/synch.h"
 #include "filesys/filesys.h"
 #include "devices/shutdown.h"
 #include "devices/input.h"
 #include "filesys/file.h"
+#include "userprog/pagedir.h"
+#include "threads/vaddr.h"
 
 static void syscall_handler (struct intr_frame *);
 static void execute_halt (void);
-static void execute_exit (struct intr_frame *, int *);
-static void execute_exec (struct intr_frame *, const char **);
-static void execute_wait (struct intr_frame *, tid_t);
-static int execute_write (int, const void *, unsigned);
-static void execute_create (struct intr_frame *, const char *, unsigned);
-static void execute_remove (struct intr_frame *, const char *);
-static void execute_open (struct intr_frame *, const char *);
-static void execute_filesize (struct intr_frame *, int);
-static void execute_read (struct intr_frame *, int, void *, unsigned) UNUSED;
-static void execute_seek (int, unsigned);
-static void execute_tell (struct intr_frame *, int);
-static void execute_close (int);
+static void execute_exit (struct intr_frame *, int*);
+static uint32_t execute_exec (const char *);
+static uint32_t execute_wait (tid_t);
+static uint32_t execute_write (int, const void *, unsigned);
+static uint32_t execute_create (const char *, unsigned);
+static uint32_t execute_remove (const char *);
+static uint32_t execute_open (const char *);
+static uint32_t execute_filesize (int);
+static uint32_t execute_read (int, void *, unsigned) UNUSED;
+static uint32_t execute_seek (int, unsigned);
+static uint32_t execute_tell (int);
+static uint32_t execute_close (int);
 static struct file * find_file_from_fd (int);
+static void check_valid_access ( const uint32_t addr );
 
 static struct list fd_list;
 static int new_fd = 1; //fd to be allocated.
@@ -52,9 +55,11 @@ syscall_handler (struct intr_frame *f)
 {
   uint32_t *stackptr = f->esp;
   int syscall = *stackptr;
+  uint32_t result;  //return value stored in eax
   if( syscall == SYS_HALT )  /* ZERO arguments */
   { 
     execute_halt();
+    NOT_REACHED();
   } else if( syscall == SYS_EXIT || syscall == SYS_EXEC || syscall == SYS_WAIT ||
               syscall == SYS_REMOVE || syscall == SYS_OPEN || syscall == SYS_FILESIZE ||
               syscall == SYS_TELL || syscall == SYS_CLOSE )  /* ONE argument */
@@ -62,48 +67,58 @@ syscall_handler (struct intr_frame *f)
     uint32_t *arg = stackptr + 1;
     if( syscall == SYS_EXIT ) {
       execute_exit( f, (int *)arg );
+      NOT_REACHED();
     } else if( syscall == SYS_EXEC )
     {
-      execute_exec( f, (const char **)arg );
+	    check_valid_access( *arg );
+      result = execute_exec( (char *)*arg );
     } else if( syscall == SYS_WAIT )
     {
-//    pid_t pid = (pid_t)*arg;
-      execute_wait( f, (tid_t)*arg );
+      result = execute_wait( (tid_t)*arg );
     } else if( syscall == SYS_REMOVE )
     {
-      execute_remove(f, (char *)arg);
+	    check_valid_access( *arg );
+      result = execute_remove( (char *)*arg );
     } else if( syscall == SYS_OPEN )
     {
-      execute_open (f, (char *) arg);
+	    check_valid_access( *arg );
+      result = execute_open ( (char *)*arg );
     } else if( syscall == SYS_FILESIZE )
     {
-      execute_filesize (f, (int) arg);
+      result = execute_filesize ((int)*arg );
     } else if( syscall == SYS_TELL )
     {
-      execute_tell (f, (int) arg);
-    } else if (syscall == SYS_CLOSE)
+      result = execute_tell( (int)*arg );
+    } else /*(syscall == SYS_CLOSE)*/
     {
-      execute_close ((int) arg);
+      result = execute_close( (int)*arg );
     }
   } else if( syscall == SYS_CREATE || syscall == SYS_SEEK )  /* TWO arguments */
   {
-    void *arg1 = stackptr + 1;
+    uint32_t *arg1 = stackptr + 1;
     unsigned *arg2 = stackptr + 2;
     if (syscall == SYS_CREATE)
-      execute_create (f, (char *)arg1, *arg2);
-    if (syscall == SYS_SEEK)
-      execute_seek ((int) arg1, (unsigned) arg2);
-  } else if( syscall == SYS_READ || syscall == SYS_WRITE )  /* THREE arguments */
+    {
+	    check_valid_access( *arg1 );
+      result = execute_create( (char *)*arg1, *arg2 );
+    } else
+    {
+      result = execute_seek( (int)*arg1, *arg2 );
+    }
+  } else /* if( syscall == SYS_READ || syscall == SYS_WRITE )*/ /* THREE arguments */
   {
     int fd = *(stackptr + 1);
     void *buffer = (void*)*(stackptr + 2);
+	  check_valid_access( (uint32_t)buffer );
     unsigned size = *(stackptr + 3);
     if( syscall == SYS_WRITE ) {
-      execute_write (fd, buffer, size);
+      result = execute_write (fd, buffer, size);
     } else {
+      result = 0; //TODO
 //      read();
     }
   }
+  f->eax = result;
 /*  printf ("system call!\n");
   thread_exit ();*/
 }
@@ -119,7 +134,7 @@ execute_halt (void)
 status of the kernel. A status of 0 indicates success, and nonzero values indicate
 errors */
 static void
-execute_exit (struct intr_frame * f, int *arg)
+execute_exit (struct intr_frame *f, int *arg)
 {
   struct thread *current = thread_current();
   struct list parents_children = current->parent->children;
@@ -137,23 +152,22 @@ execute_exit (struct intr_frame * f, int *arg)
   thread_exit();
 }
 
-static void
-execute_exec (struct intr_frame *f, const char ** file_name)
+static uint32_t
+execute_exec (const char * file_name)
 {
-  tid_t* id = malloc(sizeof(tid_t));
-  *id = process_execute( *file_name );
-  f->eax = (uint32_t)id;
+  tid_t id = process_execute( file_name );
+  return (uint32_t)id;
 }
 
-static void
-execute_wait ( struct intr_frame * f, tid_t tid )
+static uint32_t
+execute_wait (tid_t tid)
 {
   tid_t* id = malloc(sizeof(tid_t));
   *id = process_wait( tid );
-  f->eax = (uint32_t)id;
+  return (uint32_t)id;
 }
 
-static int
+static uint32_t
 execute_write (int fd, const void *buffer, unsigned size)
 {
   if (fd == STDIN_FILENO )
@@ -166,24 +180,24 @@ execute_write (int fd, const void *buffer, unsigned size)
   return 0;
 }
 
-static void
-execute_create (struct intr_frame *f, const char *file, unsigned initial_size)
+static uint32_t
+execute_create (const char *file, unsigned initial_size)
 {
   bool *success = malloc(sizeof (bool));
   *success = filesys_create (file, initial_size);
-  f->eax = (uint32_t) success;
+  return (uint32_t) success;
 }
 
-static void
-execute_remove (struct intr_frame *f, const char *file)
+static uint32_t
+execute_remove (const char *file)
 {
   bool *success = malloc(sizeof (bool));
   *success = filesys_remove (file);
-  f->eax = (uint32_t) success;
+  return (uint32_t) success;
 }
 
-static void
-execute_open (struct intr_frame *f, const char *file)
+static uint32_t
+execute_open (const char *file)
 {
   struct file *file_opened;
   file_opened = filesys_open(file);
@@ -191,7 +205,7 @@ execute_open (struct intr_frame *f, const char *file)
   if(file_opened == NULL || file == NULL || !file_opened) // Returns -1 if file could not be opened
   {
     *open = -1;
-    f->eax = (uint32_t) open;
+    return (uint32_t) open;
   }
 
   struct fd_elems *new_file;
@@ -200,28 +214,27 @@ execute_open (struct intr_frame *f, const char *file)
   new_file->file = file_opened;
   list_push_back (&fd_list, &new_file->elem); 
   *open = new_file->fd;
-  f->eax = (uint32_t) open;
+  return (uint32_t) open;
 }
 
 /* Stores the size of the file opened in bytes into eax. If file does not exist,
    stores 0 in eax. */
-static void
-execute_filesize (struct intr_frame *f, int fd)
+static uint32_t
+execute_filesize (int fd)
 {
   struct file *file;
   file = find_file_from_fd(fd);
   int *filesize = 0;
   if(file == NULL)
   {
-    f->eax = (uint32_t) filesize;
-    return;
+    return (uint32_t) filesize;
   }
   *filesize = (int) file_length (file);
-  f->eax = (uint32_t) filesize;
+  return (uint32_t) filesize;
 }
 
-static void
-execute_read (struct intr_frame *f, int fd, void *buffer, unsigned size)
+static uint32_t
+execute_read (int fd, void *buffer, unsigned size)
 {
   struct file *file;
   int i;
@@ -231,48 +244,47 @@ execute_read (struct intr_frame *f, int fd, void *buffer, unsigned size)
     for (i = 0; i != (int) size; i++)
       *(uint8_t *) (buffer + 1) = input_getc ();
     *bytes_read = size;
-    f->eax = (uint32_t) bytes_read;
-    return;
+    return (uint32_t) bytes_read;
   }
   if (fd == STDOUT_FILENO) // file cannot be read, so eax = -1
   {
     *bytes_read = -1;
-    f->eax = (uint32_t) bytes_read;
-    return;
+    return (uint32_t) bytes_read;
   }
   file = find_file_from_fd (fd);
   if (file == NULL || !file)
   {
     *bytes_read = -1;
-    f->eax = (uint32_t) bytes_read;
-    return;
+    return (uint32_t) bytes_read;
   }
   *bytes_read = file_read (file, buffer, size);
-  f->eax = (uint32_t) bytes_read;
+  return (uint32_t) bytes_read;
 }
 
 /* Changes the next byte to be read or written in the open file fd to position */
-static void
+static uint32_t
 execute_seek (int fd, unsigned position)
 {
   struct file *file;
   file = find_file_from_fd (fd);
   file_seek (file, position);
+  return 0; //dummy value
 }
 
 /* eax = the position of the next byte to be read or written in the open file fd
    expressed in bytes from the beginning of the file */
-static void
-execute_tell (struct intr_frame *f UNUSED, int fd UNUSED)
+static uint32_t
+execute_tell (int fd)
 {
   struct file *file;
   file = find_file_from_fd (fd);
   unsigned *tell = (unsigned *) malloc (sizeof (unsigned));
   *tell = (unsigned) file_tell (file);
-  f->eax = (uint32_t) tell;
+  return (uint32_t) tell;
 }
 
-static void
+/*TODO remove ALL open file descriptors*/
+static uint32_t
 execute_close (int fd)
 {
   struct list_elem *e;
@@ -284,11 +296,13 @@ execute_close (int fd)
       file_close (fd_elem->file);      
       list_remove (e);
       free (fd_elem);
-      return;
+      return 0;
     }
   }
-  return;
+  return 0; //dummy value
 }
+
+/* functions to correct help system call handling */
 
 static struct file *
 find_file_from_fd (int fd)
@@ -301,4 +315,16 @@ find_file_from_fd (int fd)
       return fd_elem->file;
   }
   return NULL;
+}
+
+
+/*checks user memory access is valid*/
+static void
+check_valid_access (const uint32_t addr)
+{
+  if( !is_user_vaddr((void*)addr) ||
+     pagedir_get_page( thread_current()->pagedir, (void*)addr ) == NULL ) 
+  {
+    thread_exit();
+  }
 }

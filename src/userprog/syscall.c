@@ -198,6 +198,7 @@ execute_open (struct intr_frame *f, const char *file)
   new_file = (struct fd_elems *) malloc (sizeof (struct fd_elems));
   new_file->fd = new_fd++;  
   new_file->file = file_opened;
+  list_push_back (&fd_list, &new_file->elem); 
   *open = new_file->fd;
   f->eax = (uint32_t) open;
 }

@@ -60,10 +60,7 @@ process_execute (const char *command)
     arguments [i] = token;
   }
   arguments [i] = NULL;
-<<<<<<< HEAD
 
-=======
->>>>>>> 5e67c6bf407dda33cf9482da8f6703793768069f
   /* Create a new thread to execute the command. */
   tid_t tid = thread_create (arguments [0], PRI_DEFAULT, start_process,
                              arguments);

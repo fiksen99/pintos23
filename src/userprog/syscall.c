@@ -253,8 +253,10 @@ execute_close (int fd)
   {
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
     if (fd_elem->fd == fd)
-    {      
+    {
+      file_close (fd_elem->file);      
       list_remove (e);
+      free (fd_elem);
       return;
     }
   }

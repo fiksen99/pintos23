@@ -54,8 +54,8 @@ static void
 syscall_handler (struct intr_frame *f) 
 {
   uint32_t *stackptr = f->esp;
-  printf("%d",stackptr);
   int syscall = *stackptr;
+  check_valid_access( (uint32_t)stackptr );
   uint32_t result;  //return value stored in eax
   if( syscall == SYS_HALT )  /* ZERO arguments */
   { 

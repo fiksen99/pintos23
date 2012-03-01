@@ -103,11 +103,7 @@ start_process (void *arguments_)
   for (i = 0; arguments [i] != NULL; i++)
   {
     char *argument = arguments [i];
-    if_.esp -= strlen (argument);
-    if (i != 0)
-    {
-      if_.esp--;
-    }
+    if_.esp -= strlen (argument) + 1;
     strlcpy (if_.esp, argument, strlen (argument) + 1);
     arguments [i] = if_.esp;
   }

@@ -316,8 +316,6 @@ thread_exit (void)
       s = list_entry (e, struct child_status, elem);
 	    if ( s->tid == current->tid ) break;
     }
-  	if( s->status == NULL ) //terminated by kernel
-		  s->s
     sema_up( &s->sema );
   }
   /* Remove thread from all threads list, set our status to dying,

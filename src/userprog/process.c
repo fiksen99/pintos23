@@ -60,7 +60,10 @@ process_execute (const char *command)
     arguments [i] = token;
   }
   arguments [i] = NULL;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5e67c6bf407dda33cf9482da8f6703793768069f
   /* Create a new thread to execute the command. */
   tid_t tid = thread_create (arguments [0], PRI_DEFAULT, start_process,
                              arguments);
@@ -309,13 +312,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
-printf("REACHES START_LOAD\n\n\n");
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
-printf("PROCESS_ACTIVATE CALLED BEFORE\n\n\n");
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -325,7 +326,6 @@ printf("PROCESS_ACTIVATE CALLED BEFORE\n\n\n");
       goto done; 
     }
 
-printf("FILE IS OPEN\n\n\n");
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -339,22 +339,18 @@ printf("FILE IS OPEN\n\n\n");
       goto done; 
     }
 
-printf("VALID EXECUTABLE\n\n\n");
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
     {
-printf("1\n");
       struct Elf32_Phdr phdr;
 
       if (file_ofs < 0 || file_ofs > file_length (file))
         goto done;
-printf("2\n");
       file_seek (file, file_ofs);
 
       if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
         goto done;
-printf("3\n");
       file_ofs += sizeof phdr;
       switch (phdr.p_type) 
         {
@@ -384,7 +380,6 @@ printf("3\n");
                   read_bytes = page_offset + phdr.p_filesz;
                   zero_bytes = (ROUND_UP (page_offset + phdr.p_memsz, PGSIZE)
                                 - read_bytes);
-printf("4\n");
                 }
               else 
                 {
@@ -393,29 +388,23 @@ printf("4\n");
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-printf("5\n");
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
             }
           else  
             {
-printf("6\n");
             goto done;
             }
-printf("7\n");
           break;
         }
     }
 
-printf("READ PROGRAM HEADERS\n\n\n");
   /* Set up stack. */
   if (!setup_stack (esp)) {
     goto done;
-printf("REACHES START_LOAD\n\n\n");
 	}
 
-printf("STACK SET UP CORRECTLY\n\n\n");
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 

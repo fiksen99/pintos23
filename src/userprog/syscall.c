@@ -18,6 +18,7 @@
 #include "threads/synch.h"
 #include "filesys/filesys.h"
 #include "devices/shutdown.h"
+#include "devices/input.h"
 #include "filesys/file.h"
 
 static void syscall_handler (struct intr_frame *);
@@ -32,7 +33,7 @@ static void execute_open (struct intr_frame *, const char *);
 static void execute_filesize (struct intr_frame *, int);
 static void execute_read (struct intr_frame *, int, void *, unsigned) UNUSED;
 static void execute_seek (int, unsigned);
-static void execute_tell (struct intr_frame *, int) UNUSED;
+static void execute_tell (struct intr_frame *, int);
 static void execute_close (int);
 static struct file * find_file_from_fd (int);
 
@@ -79,7 +80,7 @@ syscall_handler (struct intr_frame *f)
       execute_filesize (f, (int) arg);
     } else if( syscall == SYS_TELL )
     {
-
+      execute_tell (f, (int) arg);
     } else if (syscall == SYS_CLOSE)
     {
       execute_close ((int) arg);
@@ -265,7 +266,7 @@ execute_tell (struct intr_frame *f UNUSED, int fd UNUSED)
 {
   struct file *file;
   file = find_file_from_fd (fd);
-  unsigned *tell;
+  unsigned *tell = (unsigned *) malloc (sizeof (unsigned));
   *tell = (unsigned) file_tell (file);
   f->eax = (uint32_t) tell;
 }

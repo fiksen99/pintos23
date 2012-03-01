@@ -114,8 +114,7 @@ syscall_handler (struct intr_frame *f)
     if( syscall == SYS_WRITE ) {
       result = execute_write (fd, buffer, size);
     } else {
-      result = 0; //TODO
-//      read();
+      result = execute_read (fd, buffer, size);
     }
   }
   f->eax = result;

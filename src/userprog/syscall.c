@@ -43,11 +43,14 @@ static void check_valid_access ( const uint32_t addr );
 static struct list fd_list;
 static int new_fd = 1; //fd to be allocated.
 
+static struct lock file_lock;
+
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   list_init (&fd_list);
+  lock_init (&file_lock);
 }
 
 static void
@@ -182,22 +185,27 @@ execute_write (int fd, const void *buffer, unsigned size)
 static uint32_t
 execute_create (const char *file, unsigned initial_size)
 {
+  lock_acquire (&file_lock);
   bool *success = malloc(sizeof (bool));
   *success = filesys_create (file, initial_size);
+  lock_release (&file_lock);
   return (uint32_t) success;
 }
 
 static uint32_t
 execute_remove (const char *file)
 {
+  lock_acquire (&file_lock);
   bool *success = malloc(sizeof (bool));
   *success = filesys_remove (file);
+  lock_release (&file_lock);
   return (uint32_t) success;
 }
 
 static uint32_t
 execute_open (const char *file)
 {
+  lock_acquire (&file_lock);
   struct file *file_opened;
   file_opened = filesys_open(file);
   int *open = malloc(sizeof (int));
@@ -295,9 +303,10 @@ execute_close (int fd)
       file_close (fd_elem->file);      
       list_remove (e);
       free (fd_elem);
-      return 0;
+      break;
     }
   }
+  lock_release (&file_lock);
   return 0; //dummy value
 }
 

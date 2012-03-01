@@ -143,8 +143,10 @@ printf("LOADS\n\n\n");
   for (p = if_.esp; p < PHYS_BASE; p++)
   {
     printf ("%p: %p\n", p, *p);
-  }
-*/  /* ***************************** */
+
+  }*/
+  /* ***************************** */
+
 //printf("about to jump to program\n\n");
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

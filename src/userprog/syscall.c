@@ -57,7 +57,6 @@ static void
 syscall_handler (struct intr_frame *f)
 {
   uint32_t *stackptr = f->esp;
-  printf("%d",stackptr);
   int syscall = *stackptr;
   uint32_t result; // return value stored in eax
   if (syscall == SYS_HALT) /* ZERO arguments */
@@ -186,14 +185,18 @@ execute_wait (tid_t tid)
 static uint32_t
 execute_write (int fd, const void *buffer, unsigned size)
 {
-  if (fd == STDIN_FILENO )
-    return 0;
   if (fd == STDOUT_FILENO )     /*write to console*/
   {
     putbuf( buffer, size );
-    return size;
+    return (uint32_t) size;
   }
-  return 0;
+  struct file *file = find_file_from_fd (fd);
+  if (file == NULL)
+    return 0;
+  lock_acquire (&file_lock);
+  uint32_t bytes = (uint32_t) file_write (file, buffer, size);
+  lock_release (&file_lock);
+  return bytes; 
 }
 
 static uint32_t
@@ -208,7 +211,10 @@ execute_create (const char *file, unsigned initial_size)
 static uint32_t
 execute_remove (const char *file)
 {
-  return (uint32_t) filesys_remove (file);
+  lock_acquire (&file_lock);
+  uint32_t ret = (uint32_t) filesys_remove (file);
+  lock_release (&file_lock);
+  return ret;
 }
 
 static uint32_t
@@ -218,13 +224,14 @@ execute_open (const char *file)
   {
     return (uint32_t) -1;
   }
+  lock_acquire (&file_lock);
   struct file *file_opened = filesys_open (file);
+  lock_release (&file_lock);
   if (file_opened == NULL) // Returns -1 if file could not be opened
   {
     return (uint32_t) -1;
   }
 
-  lock_acquire (&file_lock);
   struct fd_elems *new_file;
   new_file = (struct fd_elems *) malloc (sizeof (struct fd_elems));
   new_file->fd = ++new_fd;  
@@ -242,7 +249,11 @@ execute_filesize (int fd)
   if (file == NULL)
     return 0;
 
-  return (uint32_t) file_length (file);
+  lock_acquire (&file_lock);
+  uint32_t bytes = (uint32_t) file_length (file);
+  lock_release (&file_lock);
+
+  return bytes;
 }
 
 static uint32_t
@@ -260,16 +271,24 @@ execute_read (int fd, void *buffer, unsigned size)
   {
     return (uint32_t) -1;
   }
-  return (uint32_t) file_read (file, buffer, size);
+  lock_acquire (&file_lock);
+  uint32_t bytes = (uint32_t) file_read (file, buffer, size);
+  lock_release (&file_lock);
+
+  return bytes;
 }
 
 /* Changes the next byte to be read or written in the open file fd to position */
 static uint32_t
 execute_seek (int fd, unsigned position)
 {
-  struct file *file;
-  file = find_file_from_fd (fd);
-  file_seek (file, position);
+  struct file *file = find_file_from_fd (fd);
+  if (file != NULL)
+  {
+    lock_acquire (&file_lock);
+    file_seek (file, position);
+    lock_release (&file_lock);  
+  }
   return 0; //dummy value
 }
 
@@ -278,31 +297,38 @@ execute_seek (int fd, unsigned position)
 static uint32_t
 execute_tell (int fd)
 {
-  struct file *file;
-  file = find_file_from_fd (fd);
-  unsigned *tell = (unsigned *) malloc (sizeof (unsigned));
-  *tell = (unsigned) file_tell (file);
-  return (uint32_t) tell;
+  struct file *file = find_file_from_fd (fd);
+  if (file == NULL)
+    return 0;
+  
+  lock_acquire (&file_lock);
+  uint32_t position = (uint32_t) file_tell (file);
+  lock_release (&file_lock);
+
+  return position;
 }
 
 /*TODO remove ALL open file descriptors*/
 static uint32_t
 execute_close (int fd)
 {
+  if (fd == 0 || fd == 1)
+    return -1;
   struct list_elem *e;
   for(e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
   {
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
     if (fd_elem->fd == fd)
     {
-      file_close (fd_elem->file);      
+      lock_acquire (&file_lock);
+      file_close (fd_elem->file);
+      lock_release (&file_lock);      
       list_remove (e);
       free (fd_elem);
       break;
     }
   }
-  lock_release (&file_lock);
-  return 0; //dummy value
+  return -1; //dummy value
 }
 
 /* functions to correct help system call handling */

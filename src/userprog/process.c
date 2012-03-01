@@ -78,6 +78,7 @@ static void
 start_process (void *arguments_)
 {
   char **arguments = arguments_;
+  char *command = arguments [0];
 
   /* Initialize interrupt frame and load executable. */
   struct intr_frame if_;
@@ -86,12 +87,12 @@ start_process (void *arguments_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  bool success = load (arguments [0], &if_.eip, &if_.esp);
+  bool success = load (command, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   if (!success)
   {
-    palloc_free_page (arguments [0]);
+    palloc_free_page (command);
     palloc_free_page (arguments);
     thread_exit ();
   }
@@ -108,7 +109,7 @@ start_process (void *arguments_)
     arguments [i] = if_.esp;
   }
 
-  palloc_free_page (arguments [0]);
+  palloc_free_page (command);
 
   /* Round if_.esp down to the nearest multiple of 4 */
   if_.esp -= ((uint32_t) if_.esp) % 4;
@@ -168,7 +169,7 @@ process_wait (tid_t child_tid)
 {
   struct thread* curr = thread_current();
   struct list_elem *e;
-  struct child_status* child;
+  struct child_status* child = NULL;
   // find child_status for tid
   for (e = list_begin (&(curr->children)) ; e != list_end (&(curr->children)) ; e = list_next (e))
   {

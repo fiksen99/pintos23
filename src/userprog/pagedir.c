@@ -5,6 +5,7 @@
 #include "threads/init.h"
 #include "threads/pte.h"
 #include "threads/palloc.h"
+#include "threads/thread.h"
 
 static uint32_t *active_pd (void);
 static void invalidate_pagedir (uint32_t *);
@@ -127,15 +128,13 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
 {
   uint32_t *pte;
 
-  if( uaddr == NULL || !is_user_vaddr(uaddr) )
-  {
-	  thread_exit();
-  }
+  ASSERT( !is_user_vaddr(uaddr) )
+
   pte = lookup_page (pd, uaddr, false);
   if (pte != NULL && (*pte & PTE_P) != 0)
     return pte_get_page (*pte) + pg_ofs (uaddr);
   else
-    thread_exit();
+    return NULL;
 }
 
 /* Marks user virtual page UPAGE "not present" in page

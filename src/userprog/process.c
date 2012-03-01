@@ -36,6 +36,7 @@ process_execute (const char *command)
     return TID_ERROR;
   strlcpy (command_copy, command, PGSIZE);
 
+  /* Create an array to store the arguments */
   char **arguments = palloc_get_page (0);
   if (arguments == 0)
   {
@@ -43,6 +44,7 @@ process_execute (const char *command)
     return TID_ERROR;
   }
 
+  /* Tokenise command_copy and populate arguments */
   int32_t i = 0;
   char *token, *save_ptr;
   for (token = strtok_r (command_copy, " ", &save_ptr);
@@ -58,7 +60,7 @@ process_execute (const char *command)
     arguments [i] = token;
   }
   arguments [i] = NULL;
-  printf("command name: %s\n", arguments[0]);
+
   /* Create a new thread to execute the command. */
   tid_t tid = thread_create (arguments [0], PRI_DEFAULT, start_process,
                              arguments);
@@ -76,7 +78,6 @@ static void
 start_process (void *arguments_)
 {
   char **arguments = arguments_;
-  char *command = arguments [0];
 
   /* Initialize interrupt frame and load executable. */
   struct intr_frame if_;
@@ -84,9 +85,9 @@ start_process (void *arguments_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  //printf("command: %s",command);
-  bool success = load (command, &if_.eip, &if_.esp);
-printf("LOADS\n\n\n");
+
+  bool success = load (arguments [0], &if_.eip, &if_.esp);
+
   /* If load failed, quit. */
   if (!success)
   {
@@ -94,7 +95,7 @@ printf("LOADS\n\n\n");
     palloc_free_page (arguments);
     thread_exit ();
   }
-//printf("STARTS SETTING UP STACK\n\n\n");
+
   /* Set up stack */
 
   /* Store all arguments on the stack */
@@ -109,9 +110,9 @@ printf("LOADS\n\n\n");
     }
     strlcpy (if_.esp, argument, strlen (argument) + 1);
     arguments [i] = if_.esp;
-  }//printf("stores arguments on stack\n\n\n");
+  }
 
-  palloc_free_page (command);
+  palloc_free_page (arguments [0]);
 
   /* Round if_.esp down to the nearest multiple of 4 */
   if_.esp -= ((uint32_t) if_.esp) % 4;
@@ -138,14 +139,6 @@ printf("LOADS\n\n\n");
   /* Push a fake return address */
   STACK_PUSH (if_.esp, void *, NULL);
 
-  /* ***************************** */
-/*  void **p;
-  for (p = if_.esp; p < PHYS_BASE; p++)
-  {
-    printf ("%p: %p\n", p, *p);
-  }
-*/  /* ***************************** */
-//printf("about to jump to program\n\n");
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its

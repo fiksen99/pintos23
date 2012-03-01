@@ -3,7 +3,7 @@
 
 #include "lib/kernel/list.h"
 
-/* Implementation for file descriptor mapping */
+/* Implementation for file descriptor */
 struct fd_elems
 {
   int fd;

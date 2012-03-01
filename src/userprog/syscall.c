@@ -37,6 +37,7 @@ static void execute_close (int) UNUSED;
 static struct file * find_file_from_fd (int);
 
 static struct list fd_list;
+static int new_fd = 1; //fd to be allocated.
 
 void
 syscall_init (void) 
@@ -186,13 +187,18 @@ execute_open (struct intr_frame *f, const char *file)
   struct file *file_opened;
   file_opened = filesys_open(file);
   int *open = malloc(sizeof (int));
-  if(file_opened == NULL || file == NULL) // Returns -1 if file could not be opened
+  if(file_opened == NULL || file == NULL || !file_opened) // Returns -1 if file could not be opened
   {
     *open = -1;
     f->eax = (uint32_t) open;
   }
 
-  //WHAT DO I DO HERE?
+  struct fd_elems *new_file;
+  new_file = (struct fd_elems *) malloc (sizeof (struct fd_elems));
+  new_file->fd = new_fd++;  
+  new_file->file = file_opened;
+  *open = new_file->fd;
+  f->eax = (uint32_t) open;
 }
 
 /* Stores the size of the file opened in bytes into eax. If file does not exist,
@@ -240,16 +246,26 @@ execute_tell (struct intr_frame *f UNUSED, int fd UNUSED)
 }
 
 static void
-execute_close (int fd UNUSED)
+execute_close (int fd)
 {
-
+  struct list_elem *e;
+  for(e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
+  {
+    struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
+    if (fd_elem->fd == fd)
+    {      
+      list_remove (e);
+      return;
+    }
+  }
+  return;
 }
 
 static struct file *
 find_file_from_fd (int fd)
 {
   struct list_elem *e;
-  for(e = list_begin (&fd_list); e != list_back(&fd_list); e = list_next(e))
+  for(e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
   {
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
     if (fd_elem->fd == fd)

@@ -43,78 +43,98 @@ static void check_valid_access ( const uint32_t addr );
 static struct list fd_list;
 static int new_fd = 1; //fd to be allocated.
 
+static struct lock file_lock;
+
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   list_init (&fd_list);
+  lock_init (&file_lock);
 }
 
 static void
-syscall_handler (struct intr_frame *f) 
+syscall_handler (struct intr_frame *f)
 {
   uint32_t *stackptr = f->esp;
   check_valid_access( (uint32_t)stackptr );
   int syscall = *stackptr;
-  uint32_t result;  //return value stored in eax
-  if( syscall == SYS_HALT )  /* ZERO arguments */
-  { 
-    execute_halt();
-    NOT_REACHED();
-  } else if( syscall == SYS_EXIT || syscall == SYS_EXEC || syscall == SYS_WAIT ||
-              syscall == SYS_REMOVE || syscall == SYS_OPEN || syscall == SYS_FILESIZE ||
-              syscall == SYS_TELL || syscall == SYS_CLOSE )  /* ONE argument */
+  uint32_t result; // return value stored in eax
+  if (syscall == SYS_HALT) /* ZERO arguments */
+  {
+    execute_halt ();
+    NOT_REACHED ();
+  }
+  else if (syscall == SYS_EXIT || syscall == SYS_EXEC || syscall == SYS_WAIT
+           || syscall == SYS_REMOVE || syscall == SYS_OPEN
+           || syscall == SYS_FILESIZE || syscall == SYS_TELL
+           || syscall == SYS_CLOSE) /* ONE argument */
   {
     uint32_t *arg = stackptr + 1;
-    if( syscall == SYS_EXIT ) {
-      execute_exit( f, (int *)arg );
-      NOT_REACHED();
-    } else if( syscall == SYS_EXEC )
+    if (syscall == SYS_EXIT)
     {
-	    check_valid_access( *arg );
-      result = execute_exec( (char *)*arg );
-    } else if( syscall == SYS_WAIT )
-    {
-      result = execute_wait( (tid_t)*arg );
-    } else if( syscall == SYS_REMOVE )
-    {
-	    check_valid_access( *arg );
-      result = execute_remove( (char *)*arg );
-    } else if( syscall == SYS_OPEN )
-    {
-	    check_valid_access( *arg );
-      result = execute_open ( (char *)*arg );
-    } else if( syscall == SYS_FILESIZE )
-    {
-      result = execute_filesize ((int)*arg );
-    } else if( syscall == SYS_TELL )
-    {
-      result = execute_tell( (int)*arg );
-    } else /*(syscall == SYS_CLOSE)*/
-    {
-      result = execute_close( (int)*arg );
+      execute_exit (f, (int *) arg);
+      NOT_REACHED ();
     }
-  } else if( syscall == SYS_CREATE || syscall == SYS_SEEK )  /* TWO arguments */
+    else if (syscall == SYS_EXEC)
+    {
+	    check_valid_access (*arg);
+      result = execute_exec ((char *) *arg);
+    }
+    else if (syscall == SYS_WAIT)
+    {
+      result = execute_wait ((tid_t) *arg);
+    }
+    else if (syscall == SYS_REMOVE)
+    {
+	    check_valid_access (*arg);
+      result = execute_remove ((char *) *arg);
+    }
+    else if (syscall == SYS_OPEN)
+    {
+	    check_valid_access (*arg);
+      result = execute_open ((char *) *arg);
+    }
+    else if (syscall == SYS_FILESIZE)
+    {
+      result = execute_filesize ((int) *arg);
+    }
+    else if (syscall == SYS_TELL)
+    {
+      result = execute_tell((int) *arg);
+    }
+    else /* (syscall == SYS_CLOSE) */
+    {
+      result = execute_close ((int) *arg);
+    }
+  }
+  else if (syscall == SYS_CREATE || syscall == SYS_SEEK) /* TWO arguments */
   {
     uint32_t *arg1 = stackptr + 1;
     unsigned *arg2 = stackptr + 2;
     if (syscall == SYS_CREATE)
     {
-	    check_valid_access( *arg1 );
-      result = execute_create( (char *)*arg1, *arg2 );
-    } else
-    {
-      result = execute_seek( (int)*arg1, *arg2 );
+	    check_valid_access (*arg1);
+      result = execute_create ((char *) *arg1, *arg2);
     }
-  } else /* if( syscall == SYS_READ || syscall == SYS_WRITE )*/ /* THREE arguments */
+    else
+    {
+      result = execute_seek ((int) *arg1, *arg2);
+    }
+  }
+  else /* ( syscall == SYS_READ || syscall == SYS_WRITE ) */
+       /* THREE arguments */
   {
     int fd = *(stackptr + 1);
-    void *buffer = (void*)*(stackptr + 2);
-	  check_valid_access( (uint32_t)buffer );
+    void *buffer = (void*) *(stackptr + 2);
+	  check_valid_access ((uint32_t) buffer);
     unsigned size = *(stackptr + 3);
-    if( syscall == SYS_WRITE ) {
+    if (syscall == SYS_WRITE)
+    {
       result = execute_write (fd, buffer, size);
-    } else {
+    }
+    else
+    {
       result = execute_read (fd, buffer, size);
     }
   }
@@ -166,51 +186,59 @@ execute_wait (tid_t tid)
 static uint32_t
 execute_write (int fd, const void *buffer, unsigned size)
 {
-  if (fd == STDIN_FILENO )
-    return 0;
   if (fd == STDOUT_FILENO )     /*write to console*/
   {
     putbuf( buffer, size );
-    return size;
+    return (uint32_t) size;
   }
-  return 0;
+  struct file *file = find_file_from_fd (fd);
+  if (file == NULL)
+    return 0;
+  lock_acquire (&file_lock);
+  uint32_t bytes = (uint32_t) file_write (file, buffer, size);
+  lock_release (&file_lock);
+  return bytes; 
 }
 
 static uint32_t
 execute_create (const char *file, unsigned initial_size)
 {
-  bool *success = malloc(sizeof (bool));
-  *success = filesys_create (file, initial_size);
+  lock_acquire (&file_lock);
+  bool success = filesys_create (file, initial_size);
+  lock_release (&file_lock);
   return (uint32_t) success;
 }
 
 static uint32_t
 execute_remove (const char *file)
 {
-  bool *success = malloc(sizeof (bool));
-  *success = filesys_remove (file);
-  return (uint32_t) success;
+  lock_acquire (&file_lock);
+  uint32_t ret = (uint32_t) filesys_remove (file);
+  lock_release (&file_lock);
+  return ret;
 }
 
 static uint32_t
 execute_open (const char *file)
 {
-  struct file *file_opened;
-  file_opened = filesys_open(file);
-  int *open = malloc(sizeof (int));
-  if(file_opened == NULL || file == NULL || !file_opened) // Returns -1 if file could not be opened
+  if (file == NULL)
   {
-    *open = -1;
-    return (uint32_t) open;
+    return (uint32_t) -1;
+  }
+  lock_acquire (&file_lock);
+  struct file *file_opened = filesys_open (file);
+  lock_release (&file_lock);
+  if (file_opened == NULL) // Returns -1 if file could not be opened
+  {
+    return (uint32_t) -1;
   }
 
   struct fd_elems *new_file;
   new_file = (struct fd_elems *) malloc (sizeof (struct fd_elems));
-  new_file->fd = new_fd++;  
+  new_file->fd = ++new_fd;  
   new_file->file = file_opened;
   list_push_back (&fd_list, &new_file->elem); 
-  *open = new_file->fd;
-  return (uint32_t) open;
+  return (uint32_t) new_file->fd;
 }
 
 /* Stores the size of the file opened in bytes into eax. If file does not exist,
@@ -218,52 +246,50 @@ execute_open (const char *file)
 static uint32_t
 execute_filesize (int fd)
 {
-  struct file *file;
-  file = find_file_from_fd(fd);
-  int *filesize = 0;
-  if(file == NULL)
-  {
-    return (uint32_t) filesize;
-  }
-  *filesize = (int) file_length (file);
-  return (uint32_t) filesize;
+  struct file *file = find_file_from_fd (fd);
+  if (file == NULL)
+    return 0;
+
+  lock_acquire (&file_lock);
+  uint32_t bytes = (uint32_t) file_length (file);
+  lock_release (&file_lock);
+
+  return bytes;
 }
 
 static uint32_t
 execute_read (int fd, void *buffer, unsigned size)
 {
-  struct file *file;
-  int i;
-  int *bytes_read = malloc(sizeof (int));
   if (fd == STDIN_FILENO) //reads input from the keyboard
   {
-    for (i = 0; i != (int) size; i++)
-      *(uint8_t *) (buffer + 1) = input_getc ();
-    *bytes_read = size;
-    return (uint32_t) bytes_read;
+    int i;
+    for (i = 0; i < (int) size; i++)
+      *(uint8_t *) (buffer + i) = input_getc (); //EOF check?
+    return (uint32_t) i;
   }
-  if (fd == STDOUT_FILENO) // file cannot be read, so eax = -1
+  struct file *file = find_file_from_fd (fd);
+  if (file == NULL)
   {
-    *bytes_read = -1;
-    return (uint32_t) bytes_read;
+    return (uint32_t) -1;
   }
-  file = find_file_from_fd (fd);
-  if (file == NULL || !file)
-  {
-    *bytes_read = -1;
-    return (uint32_t) bytes_read;
-  }
-  *bytes_read = file_read (file, buffer, size);
-  return (uint32_t) bytes_read;
+  lock_acquire (&file_lock);
+  uint32_t bytes = (uint32_t) file_read (file, buffer, size);
+  lock_release (&file_lock);
+
+  return bytes;
 }
 
 /* Changes the next byte to be read or written in the open file fd to position */
 static uint32_t
 execute_seek (int fd, unsigned position)
 {
-  struct file *file;
-  file = find_file_from_fd (fd);
-  file_seek (file, position);
+  struct file *file = find_file_from_fd (fd);
+  if (file != NULL)
+  {
+    lock_acquire (&file_lock);
+    file_seek (file, position);
+    lock_release (&file_lock);  
+  }
   return 0; //dummy value
 }
 
@@ -272,30 +298,38 @@ execute_seek (int fd, unsigned position)
 static uint32_t
 execute_tell (int fd)
 {
-  struct file *file;
-  file = find_file_from_fd (fd);
-  unsigned *tell = (unsigned *) malloc (sizeof (unsigned));
-  *tell = (unsigned) file_tell (file);
-  return (uint32_t) tell;
+  struct file *file = find_file_from_fd (fd);
+  if (file == NULL)
+    return 0;
+  
+  lock_acquire (&file_lock);
+  uint32_t position = (uint32_t) file_tell (file);
+  lock_release (&file_lock);
+
+  return position;
 }
 
 /*TODO remove ALL open file descriptors*/
 static uint32_t
 execute_close (int fd)
 {
+  if (fd == 0 || fd == 1)
+    return -1;
   struct list_elem *e;
   for(e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
   {
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
     if (fd_elem->fd == fd)
     {
-      file_close (fd_elem->file);      
+      lock_acquire (&file_lock);
+      file_close (fd_elem->file);
+      lock_release (&file_lock);      
       list_remove (e);
       free (fd_elem);
-      return 0;
+      break;
     }
   }
-  return 0; //dummy value
+  return -1; //dummy value
 }
 
 /* functions to correct help system call handling */

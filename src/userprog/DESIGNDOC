@@ -201,6 +201,13 @@ the childs status when it is allowed to continue.
 >> fails, so it cannot return before the new executable has completed
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
+Threads have a semaphore for the purpose of synchronisation of exec system calls.
+Immediately following a thread calling process_execute, the thread calls down
+on its exec_sema. This blocks the thread until the child process has either been
+able to load (in which case the thread is unblocked and returns the correct id),
+or the thread has been unable to load, in which case the parent thread's load_fail
+value is set to true, then the thread is unblocked. If this happens, the load_fail
+value results in an error value being returned.
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -208,6 +215,18 @@ the childs status when it is allowed to continue.
 >> that all resources are freed in each case?  How about when P
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
+Wait before C exits:
+If P calls wait, it is forced to wait on a semaphore that C ups before actually
+attempting to use anything associated with C.
+
+Wait after C exits:
+The semaphore will already have been upped by the child process when it dies so
+no waiting is necessary. Because C is already dead, there are no race conditions.
+
+the child_status struct is removed from the parent's list and the memory is freed
+in both these conditions at the end of process_wait.
+
+
 
 ---- RATIONALE ----
 

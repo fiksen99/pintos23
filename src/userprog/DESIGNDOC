@@ -103,14 +103,21 @@ semaphore is upped, is able to read the (exit) status.
 
 WITHIN struct thread:
 
-    struct list children;               
+  struct list children;               
 
 List of child processes, needed for process waiting
 
-  	struct thread * parent;				      /* Pointer to parent thread */
+  struct thread * parent;				      /* Pointer to parent thread */
 
 A pointer to the threads parent - needed to change the status of this thread in
 parent's list of children.
+
+  struct semaphore exec_sema;         /* Used to wait for a child process to load */
+  bool load_fail;                     /* set to true when child process fails to load */
+
+The semaphore is used to ensure synchronisation on exec - the parent process must
+wait for the child to up the sema. load_fail informs the parent if the load failed
+(meaning the return id = -1).
 
 struct fd_elems
 {
@@ -134,10 +141,17 @@ declared as below:
 static int new_fd = 2;
 
 This is initialised to 2 because 0 and 1 are already in use. So when a file is 
-added to fd_list, we use new_fd's value, and then increment is. This is done in 
+added to fd_list, we use new_fd's value, and then increment it. This is done in 
 execute_open using the following code:
 
 new_file->fd = new_fd++;
+
+To deny writes to executables, we added a field to struct thread. We added
+struct file *file to struct thread, which carries the address of the executable.
+In load in process.c, we have removed file_close (file), and we use file_deny_write 
+to disallow writes to the executable. In process_exit, we have added file_close (file)
+which automatically lets writing to the file. Implementing this allows us to 
+deny writes to executables, which allows the rox tests to work.
 
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
@@ -202,6 +216,13 @@ written.
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+The system call merely calls the process_wait function and returns the id this
+process. The actual implementation of process_wait requires each thread to have
+a list of child_status and a pointer to its parent. Each child status has an id
+relating to the child process, and exit status, and a semaphore. When a child process
+exits, it sets its own status in the parent thread's list to the correct status
+and then ups the semaphore. A parent process will wait on this semaphore, reading
+the childs status when it is allowed to continue.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -223,6 +244,13 @@ written.
 >> fails, so it cannot return before the new executable has completed
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
+Threads have a semaphore for the purpose of synchronisation of exec system calls.
+Immediately following a thread calling process_execute, the thread calls down
+on its exec_sema. This blocks the thread until the child process has either been
+able to load (in which case the thread is unblocked and returns the correct id),
+or the thread has been unable to load, in which case the parent thread's load_fail
+value is set to true, then the thread is unblocked. If this happens, the load_fail
+value results in an error value being returned.
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -230,6 +258,20 @@ written.
 >> that all resources are freed in each case?  How about when P
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
+Wait before C exits:
+If P calls wait, it is forced to wait on a semaphore that C ups before actually
+attempting to use anything associated with C.
+
+Wait after C exits:
+The semaphore will already have been upped by the child process when it dies so
+no waiting is necessary. Because C is already dead, there are no race conditions.
+
+The child_status struct is removed from the parent's list and the memory is freed
+in both these conditions at the end of process_wait.
+
+If P
+
+
 
 ---- RATIONALE ----
 
@@ -251,6 +293,8 @@ with. It was also already implemented, so it was less time consuming while codin
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+N/A
 
                SURVEY QUESTIONS
                ================

@@ -18,6 +18,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include <hash.h>
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -171,11 +172,13 @@ process_wait (tid_t child_tid)
     child = list_entry (e, struct child_status, elem);
     if( child->tid == child_tid ) break; 
   }
-  if ( e == list_end (&(curr->children)) ) return -1; //NOT a child process
+  if (e == list_end (&(curr->children))) return -1; //NOT a child process
   sema_down( &child->sema );
   // remove thread from parent's children - cant wait for again.
-  list_remove( e );
-  return child->status;
+  list_remove (e);
+  int status = child->status;
+  free (child);
+  return status;
 }
 
 /* Free the current process's resources. */

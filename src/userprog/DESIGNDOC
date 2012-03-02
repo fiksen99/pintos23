@@ -156,8 +156,7 @@ file was opened. One list kept track of all the opened files.
 
 ---- ALGORITHMS ----
 
->> B3: Describe your code for reading and writing user data from the
->> kernel.
+>> B3: Describe your kernel code for reading and writing user data.
 
 Read:
 execute_read takes in 3 parameters, which are the fd, buffer and size. The method

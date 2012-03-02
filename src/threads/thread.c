@@ -17,6 +17,7 @@
 #include "userprog/process.h"
 #endif
 #include "devices/shutdown.h"
+#include "userprog/syscall.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -299,10 +300,12 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
+  close_thread_fds ();
 
 #ifdef USERPROG
   process_exit ();
 #endif
+  
   struct thread *current = thread_current();
   bool is_main_thread = current == initial_thread;
   if(!is_main_thread ) {

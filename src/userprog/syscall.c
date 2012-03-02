@@ -14,6 +14,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/malloc.h"
+#include "threads/palloc.h"
 #include "userprog/process.h"
 #include "threads/synch.h"
 #include "filesys/filesys.h"
@@ -25,7 +26,7 @@
 
 static void syscall_handler (struct intr_frame *);
 static void execute_halt (void);
-static void execute_exit (struct intr_frame *, int*);
+static void execute_exit (struct intr_frame *, int);
 static uint32_t execute_exec (const char *);
 static uint32_t execute_wait (tid_t);
 static uint32_t execute_write (int, const void *, unsigned);
@@ -39,6 +40,7 @@ static uint32_t execute_tell (int);
 static uint32_t execute_close (int);
 static struct file * find_file_from_fd (int);
 static void check_valid_access ( const uint32_t addr );
+static void close_thread_fds (void);
 
 static struct list fd_list;
 static int new_fd = 1; //fd to be allocated.
@@ -56,6 +58,15 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f)
 {
+  uint32_t *stackptr = f->esp;
+  check_valid_access ((uint32_t) stackptr);
+  int syscall = *stackptr;
+  uint32_t result; // return value stored in eax
+  if (syscall == SYS_HALT) /* ZERO arguments */
+  {
+    execute_halt ();
+    NOT_REACHED ();
+  }
   else if (syscall == SYS_EXIT || syscall == SYS_EXEC || syscall == SYS_WAIT
            || syscall == SYS_REMOVE || syscall == SYS_OPEN
            || syscall == SYS_FILESIZE || syscall == SYS_TELL
@@ -64,7 +75,7 @@ syscall_handler (struct intr_frame *f)
     uint32_t *arg = stackptr + 1;
     if (syscall == SYS_EXIT)
     {
-      execute_exit (f, (int *) arg);
+      execute_exit (f, (int) *arg);
       NOT_REACHED ();
     }
     else if (syscall == SYS_EXEC)
@@ -113,7 +124,7 @@ syscall_handler (struct intr_frame *f)
       result = execute_seek ((int) *arg1, *arg2);
     }
   }
-  else /* ( syscall == SYS_READ || syscall == SYS_WRITE ) */
+  else if ( syscall == SYS_READ || syscall == SYS_WRITE )
        /* THREE arguments */
   {
     int fd = *(stackptr + 1);
@@ -129,6 +140,11 @@ syscall_handler (struct intr_frame *f)
       result = execute_read (fd, buffer, size);
     }
   }
+  else
+  {
+    close_thread_fds ();
+    thread_exit ();
+  }
   f->eax = result;
 }
 
@@ -143,7 +159,7 @@ execute_halt (void)
 status of the kernel. A status of 0 indicates success, and nonzero values indicate
 errors */
 static void
-execute_exit (struct intr_frame *f, int *arg)
+execute_exit (struct intr_frame *f, int arg)
 {
   struct thread *current = thread_current();
   struct list parents_children = current->parent->children;
@@ -155,8 +171,13 @@ execute_exit (struct intr_frame *f, int *arg)
     s = list_entry (e, struct child_status, elem);
 	  if ( s->tid == current->tid ) break;
   }
-  s->status = *arg;
-  f->eax = (uint32_t)arg;
+  if (arg < 0)
+  {
+    arg = -1;
+  }
+  s->status = arg;
+  f->eax = (uint32_t) arg;
+  close_thread_fds ();
   thread_exit();
 }
 
@@ -217,10 +238,11 @@ execute_create (const char *file, unsigned initial_size)
     return (uint32_t) false;
   }
   uint32_t bytes_written;
-  for (int i = 0; i < initial_size / PAGE_SIZE; i++)
+  int i;
+  for (i = 0; i < initial_size / PGSIZE; i++)
   {
-    bytes_written = file_write (file_opened, zeroes, PAGE_SIZE);
-    if (bytes_written < PAGE_SIZE)
+    bytes_written = file_write (file_opened, zeroes, PGSIZE);
+    if (bytes_written < PGSIZE)
     {
       // Failed to write some zeroes
       file_close (file_opened);
@@ -229,11 +251,11 @@ execute_create (const char *file, unsigned initial_size)
       return (uint32_t) false;
     }
   }
-  bytes_written = file_write (file_opened, zeroes, initial_size % PAGE_SIZE);
+  bytes_written = file_write (file_opened, zeroes, initial_size % PGSIZE);
   file_close (file_opened);
   palloc_free_page (zeroes);
   lock_release (&file_lock);
-  return (uint32_t) (bytes_written == initial_size % PAGE_SIZE);
+  return (uint32_t) (bytes_written == initial_size % PGSIZE);
 }
 
 static uint32_t
@@ -264,6 +286,7 @@ execute_open (const char *file)
   new_file = (struct fd_elems *) malloc (sizeof (struct fd_elems));
   new_file->fd = ++new_fd;  
   new_file->file = file_opened;
+  new_file->thread = thread_current ();
   list_push_back (&fd_list, &new_file->elem); 
   return (uint32_t) new_file->fd;
 }
@@ -353,10 +376,11 @@ execute_close (int fd)
       lock_release (&file_lock);      
       list_remove (e);
       free (fd_elem);
-      break;
+      return 0; //dummy value
     }
   }
-  return -1; //dummy value
+  close_thread_fds ();
+  thread_exit (); //fails silently
 }
 
 /* functions to correct help system call handling */
@@ -384,6 +408,28 @@ check_valid_access (const uint32_t addr)
   if( !is_user_vaddr((void*)addr) ||
      pagedir_get_page( thread_current()->pagedir, (void*)addr ) == NULL ) 
   {
+    close_thread_fds ();
     thread_exit();
+  }
+}
+
+static void
+close_thread_fds (void)
+{
+  struct thread *thread = thread_current ();
+  struct list_elem *e;
+  if (list_empty (&fd_list))
+    return;
+  for(e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
+  {
+    struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
+    if (fd_elem->thread == thread)
+    {
+      lock_acquire (&file_lock);
+      file_close (fd_elem->file);
+      lock_release (&file_lock);      
+      list_remove (e);
+      free (fd_elem);
+    }
   }
 }

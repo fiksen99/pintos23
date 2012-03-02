@@ -39,6 +39,7 @@ static uint32_t execute_tell (int);
 static uint32_t execute_close (int);
 static struct file * find_file_from_fd (int);
 static void check_valid_access ( const uint32_t addr );
+static void close_thread_fds (void);
 
 static struct list fd_list;
 static int new_fd = 1; //fd to be allocated.
@@ -165,6 +166,7 @@ execute_exit (struct intr_frame *f, int *arg)
   }
   s->status = *arg;
   f->eax = (uint32_t)arg;
+  close_thread_fds ();
   thread_exit();
 }
 
@@ -236,6 +238,7 @@ execute_open (const char *file)
   new_file = (struct fd_elems *) malloc (sizeof (struct fd_elems));
   new_file->fd = ++new_fd;  
   new_file->file = file_opened;
+  new_file->thread = thread_current ();
   list_push_back (&fd_list, &new_file->elem); 
   return (uint32_t) new_file->fd;
 }
@@ -356,6 +359,28 @@ check_valid_access (const uint32_t addr)
   if( !is_user_vaddr((void*)addr) ||
      pagedir_get_page( thread_current()->pagedir, (void*)addr ) == NULL ) 
   {
+    close_thread_fds ();
     thread_exit();
+  }
+}
+
+static void
+close_thread_fds (void)
+{
+  struct thread *thread = thread_current ();
+  struct list_elem *e;
+  if (list_empty (&fd_list))
+    return;
+  for(e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
+  {
+    struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
+    if (fd_elem->thread == thread)
+    {
+      lock_acquire (&file_lock);
+      file_close (fd_elem->file);
+      lock_release (&file_lock);      
+      list_remove (e);
+      free (fd_elem);
+    }
   }
 }

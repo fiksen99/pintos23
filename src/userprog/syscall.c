@@ -325,10 +325,10 @@ execute_close (int fd)
       lock_release (&file_lock);      
       list_remove (e);
       free (fd_elem);
-      break;
+      return 0; //dummy value
     }
   }
-  return -1; //dummy value
+  thread_exit (); //fails silently
 }
 
 /* functions to correct help system call handling */
@@ -337,6 +337,8 @@ static struct file *
 find_file_from_fd (int fd)
 {
   struct list_elem *e;
+  if (list_empty (&fd_list))
+    return NULL;
   for(e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
   {
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);

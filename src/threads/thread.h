@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/synch.h"
+#include "filesys/file.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -102,6 +103,8 @@ struct thread
   	struct thread * parent;				      /* Pointer to parent thread */
     struct semaphore exec_sema;         /* Used to wait for a child process to load */
     bool load_fail;                     /* set to true when child process fails to load */
+
+    struct file *file;
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */

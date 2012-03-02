@@ -9,7 +9,7 @@
 >> Fill in the names and email addresses of your group members.
 
 Adam Fiksen  < af1410@ic.ac.uk >
-Ryan Jackson < diddydonuts@gmail.com  >
+Ryan Jackson < rwj10@ic.ac.uk  >
 Sahil Jain   < sdj09@ic.ac.uk  >
 
 ---- PRELIMINARIES ----
@@ -30,19 +30,56 @@ Sahil Jain   < sdj09@ic.ac.uk  >
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+#define MAX_ARGS 100
+
+Sets the maximum number of arguments.
+
+#define STACK_PUSH(esp,type,value) esp-=sizeof (type); *((type*)(esp))=(value)
+
+A macro which pushes a given value to the stack and deals with the stack
+pointer.
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe how you implemented argument parsing.  How do
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
+Argument parsing begins in process_execute, a copy of the command to execute is
+made and an array of arguments is declared. The command is then tokenised,
+corrupting the copy of the command and populating the array of arguments. The
+array of arguments is passed into start_process, where each is first copied to
+the top of the stack (order being irrelevant). The stack pointer is then aligned
+to the nearest 4-byte boundary. Pointers to the arguments which reside at the
+top of the stack are then pushed in reverse order by traversing the array of
+arguments backwards, followed by argv, argc and a dummy return address.
+
+We avoid overflowing the stack page by setting a maximum number of arguments,
+defined in process.h, which ensures that the entire contents of the stack will
+not overflow the size of a page while it is being set up.
+
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
 
+strtok_r(), as opposed to strtok() is reentrant and can therefore be interrupted
+during its execution and invoked again. This is achieved with an extra agrument,
+save_ptr, which saves the current progress of the method, whereas this is stored
+in static memory in strtok(). If strtok() were to be interrupted and called
+again, this static storage would be corrupted and unusable by both instances of
+the method.
+
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
+
+One advantages is that the Unix approach minimises the amount of computation
+that the kernel must do, this ensures that the kernel code can be shorter and is
+more easily maintained.
+
+The Unix approach is also more secure as the kernel has elevated permissions and
+it makes more sense to parse commands in the more secure environment of the
+shell.
 
                  SYSTEM CALLS
                  ============
@@ -201,6 +238,26 @@ the childs status when it is allowed to continue.
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+To avoid obscuring the primary function of a code in a morass of error handling,
+we tried to add as many comments as possible in the most relevant pieces of 
+code. We created the function check_valid_access (const uint32_t) to compartmentalise 
+the checking of valid memory accesses.
+To deal with releasing temporarily allocated resources such as memory, locks,
+buffers, etc. we added code to methods which are always called on exit (such
+as thread_exit ()) to act in a similar way to destructors in OOP.
+We obtained locks before accessing any methods which needed files to be read, opened 
+or written. These were always done using file_read(), file_write(), etc.
+We released the lock right after these methods had finished executing.
+In general, we released temporary resources as soon as they were not going to be
+used anymore. 
+We tried to make sure that at all points of exit from a function all resources
+had been freed.
+
+An example is given below, taken from execute_write() in syscall.c:
+  lock_acquire (&file_lock);
+  uint32_t bytes = (uint32_t) file_write (file, buffer, size);
+  lock_release (&file_lock);
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
@@ -242,6 +299,10 @@ of child_statuses is iterated through and freed.
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
+
+We chose to access user memory in the kernel in the way that we did because we 
+thought it would be easy to implement. We split the system calls into groups by
+their number of arguments so we would have to validate the arguments once.
 
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?

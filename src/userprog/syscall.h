@@ -9,10 +9,11 @@ struct fd_elems
 {
   int fd;
   struct file *file;
-  struct thread *thread;
+  tid_t tid;
   struct list_elem elem;
 };
 
 void syscall_init (void);
+void close_thread_fds (void);
 
 #endif /* userprog/syscall.h */

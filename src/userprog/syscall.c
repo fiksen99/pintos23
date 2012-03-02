@@ -40,7 +40,6 @@ static uint32_t execute_tell (int);
 static uint32_t execute_close (int);
 static struct file * find_file_from_fd (int);
 static void check_valid_access ( const uint32_t addr );
-static void close_thread_fds (void);
 
 static struct list fd_list;
 static int new_fd = 1; //fd to be allocated.
@@ -142,7 +141,6 @@ syscall_handler (struct intr_frame *f)
   }
   else
   {
-    close_thread_fds ();
     thread_exit ();
   }
   f->eax = result;
@@ -177,7 +175,6 @@ execute_exit (struct intr_frame *f, int arg)
   }
   s->status = arg;
   f->eax = (uint32_t) arg;
-  close_thread_fds ();
   thread_exit();
 }
 
@@ -238,7 +235,7 @@ execute_create (const char *file, unsigned initial_size)
     return (uint32_t) false;
   }
   uint32_t bytes_written;
-  int i;
+  uint32_t i;
   for (i = 0; i < initial_size / PGSIZE; i++)
   {
     bytes_written = file_write (file_opened, zeroes, PGSIZE);
@@ -286,8 +283,8 @@ execute_open (const char *file)
   new_file = (struct fd_elems *) malloc (sizeof (struct fd_elems));
   new_file->fd = ++new_fd;  
   new_file->file = file_opened;
-  new_file->thread = thread_current ();
-  list_push_back (&fd_list, &new_file->elem); 
+  new_file->tid = thread_current ()->tid;
+  list_push_back (&fd_list, &new_file->elem);
   return (uint32_t) new_file->fd;
 }
 
@@ -366,7 +363,7 @@ execute_close (int fd)
   if (fd == 0 || fd == 1)
     return -1;
   struct list_elem *e;
-  for(e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
+  for(e = list_begin (&fd_list); e != list_end (&fd_list); e = list_next (e))
   {
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
     if (fd_elem->fd == fd)
@@ -379,8 +376,7 @@ execute_close (int fd)
       return 0; //dummy value
     }
   }
-  close_thread_fds ();
-  thread_exit (); //fails silently
+  return -1;
 }
 
 /* functions to correct help system call handling */
@@ -391,7 +387,7 @@ find_file_from_fd (int fd)
   struct list_elem *e;
   if (list_empty (&fd_list))
     return NULL;
-  for (e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
+  for (e = list_begin (&fd_list); e != list_end (&fd_list); e = list_next (e))
   {
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
     if (fd_elem->fd == fd)
@@ -408,28 +404,31 @@ check_valid_access (const uint32_t addr)
   if( !is_user_vaddr((void*)addr) ||
      pagedir_get_page( thread_current()->pagedir, (void*)addr ) == NULL ) 
   {
-    close_thread_fds ();
     thread_exit();
   }
 }
 
-static void
+void
 close_thread_fds (void)
 {
-  struct thread *thread = thread_current ();
-  struct list_elem *e;
+  tid_t tid = thread_current ()->tid;
   if (list_empty (&fd_list))
     return;
-  for(e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
+  struct list_elem *e = list_begin (&fd_list);
+  while (e != list_end (&fd_list))
   {
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
-    if (fd_elem->thread == thread)
+    if (fd_elem->tid == tid)
     {
       lock_acquire (&file_lock);
       file_close (fd_elem->file);
-      lock_release (&file_lock);      
-      list_remove (e);
+      lock_release (&file_lock);
+      e = list_remove (e);
       free (fd_elem);
+    }
+    else
+    {
+      e = list_next (e);
     }
   }
 }

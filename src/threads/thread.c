@@ -320,6 +320,12 @@ thread_exit (void)
     }
     printf("%s: exit(%d)\n", current->name, s->status);
     sema_up( &s->sema );
+    /* free all child statuses */
+    while (!list_empty (&current->children))
+    {
+      e = list_pop_front (&current->children);
+      free (list_entry (e, struct child_status, elem) );
+    } 
   }
   else
   {

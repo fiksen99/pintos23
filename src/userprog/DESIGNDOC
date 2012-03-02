@@ -222,8 +222,10 @@ Wait after C exits:
 The semaphore will already have been upped by the child process when it dies so
 no waiting is necessary. Because C is already dead, there are no race conditions.
 
-the child_status struct is removed from the parent's list and the memory is freed
+The child_status struct is removed from the parent's list and the memory is freed
 in both these conditions at the end of process_wait.
+
+If P
 
 
 
@@ -247,6 +249,8 @@ with. It was also already implemented, so it was less time consuming while codin
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+N/A
 
                SURVEY QUESTIONS
                ================

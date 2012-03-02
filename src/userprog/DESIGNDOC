@@ -298,6 +298,10 @@ If P
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
+We chose to access user memory in the kernel in the way that we did because we 
+thought it would be easy to implement. We split the system calls into groups by
+their number of arguments so we would have to validate the arguments once.
+
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 

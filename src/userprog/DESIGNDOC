@@ -9,7 +9,7 @@
 >> Fill in the names and email addresses of your group members.
 
 Adam Fiksen  < af1410@ic.ac.uk >
-Ryan Jackson < diddydonuts@gmail.com  >
+Ryan Jackson < rwj10@ic.ac.uk  >
 Sahil Jain   < sdj09@ic.ac.uk  >
 
 ---- PRELIMINARIES ----
@@ -62,13 +62,24 @@ not overflow the size of a page while it is being set up.
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
 
-
+strtok_r(), as opposed to strtok() is reentrant and can therefore be interrupted
+during its execution and invoked again. This is achieved with an extra agrument,
+save_ptr, which saves the current progress of the method, whereas this is stored
+in static memory in strtok(). If strtok() were to be interrupted and called
+again, this static storage would be corrupted and unusable by both instances of
+the method.
 
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
 
+One advantages is that the Unix approach minimises the amount of computation
+that the kernel must do, this ensures that the kernel code can be shorter and is
+more easily maintained.
 
+The Unix approach is also more secure as the kernel has elevated permissions and
+it makes more sense to parse commands in the more secure environment of the
+shell.
 
                  SYSTEM CALLS
                  ============

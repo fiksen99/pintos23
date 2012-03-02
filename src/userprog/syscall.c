@@ -42,7 +42,7 @@ static struct file * find_file_from_fd (int);
 static void check_valid_access ( const uint32_t addr );
 
 static struct list fd_list;
-static int new_fd = 1; //fd to be allocated.
+static int new_fd = 2; //fd to be allocated.
 
 static struct lock file_lock;
 
@@ -285,7 +285,7 @@ execute_open (const char *file)
 
   struct fd_elems *new_file;
   new_file = (struct fd_elems *) malloc (sizeof (struct fd_elems));
-  new_file->fd = ++new_fd;  
+  new_file->fd = new_fd++;
   new_file->file = file_opened;
   new_file->tid = thread_current ()->tid;
   list_push_back (&fd_list, &new_file->elem);
@@ -372,6 +372,10 @@ execute_close (int fd)
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
     if (fd_elem->fd == fd)
     {
+      if (fd_elem->tid != thread_current ()->tid)
+      {
+        return -1;
+      }
       lock_acquire (&file_lock);
       file_close (fd_elem->file);
       lock_release (&file_lock);      

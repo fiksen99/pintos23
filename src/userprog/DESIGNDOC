@@ -8,9 +8,9 @@
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+Adam Fiksen  < af1410@ic.ac.uk >
+Ryan Jackson < diddydonuts@gmail.com  >
+Sahil Jain   < sdj09@ic.ac.uk  >
 
 ---- PRELIMINARIES ----
 
@@ -74,6 +74,33 @@ List of child processes, needed for process waiting
 
 A pointer to the threads parent - needed to change the status of this thread in
 parent's list of children.
+
+struct fd_elems
+{
+  int fd;
+  struct file *file;
+  tid_t tid;
+  struct list_elem elem;
+};
+
+This is used as the struct for storing file descriptors, and it contains its
+corresponding file and tid. We have included struct list_elem elem because
+we store all the file descriptors as a list.
+For this list, we have used a static variable in syscall.c. This is declared 
+as below:
+
+static struct list fd_list;
+
+To allocate new int fds, we have used a static variable in syscall.c. This is
+declared as below:
+
+static int new_fd = 2;
+
+This is initialised to 2 because 0 and 1 are already in use. So when a file is 
+added to fd_list, we use new_fd's value, and then increment is. This is done in 
+execute_open using the following code:
+
+new_file->fd = new_fd++;
 
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a

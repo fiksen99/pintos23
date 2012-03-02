@@ -203,6 +203,16 @@ written.
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
+Advantages to use the list for file descriptors is that it is dynamic. We allocate
+memory when we add an entry to the list, and we free it when we delete it.
+Disadvantages are that we have to iterate through the list several times, which
+can be time consuming. We could have used arrays or hash tables, which would mean
+that we would not need to iterate through possibly several entries. 
+But we did not do this to save memory and because in some cases, we have to iterate
+through the list because we check the tid of every entry and then remove specific ones.
+Implementing a list was the most effective and feasible solution we could come up
+with. It was also already implemented, so it was less time consuming while coding.
+
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
 

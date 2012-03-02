@@ -315,7 +315,7 @@ execute_read (int fd, void *buffer, unsigned size)
   {
     int i;
     for (i = 0; i < (int) size; i++)
-      *(uint8_t *) (buffer + i) = input_getc (); //EOF check?
+      *(uint8_t *) (buffer + i) = input_getc ();
     return (uint32_t) i;
   }
   struct file *file = find_file_from_fd (fd);

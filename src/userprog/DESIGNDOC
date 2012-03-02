@@ -122,6 +122,41 @@ file was opened. One list kept track of all the opened files.
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
 
+Read:
+execute_read takes in 3 parameters, which are the fd, buffer and size. The method
+reads the number of bytes (which is the input size), from the file open as fd into
+the buffer. It returns the number of bytes actually read, or -1 if the file
+could not be read.
+There is a special case for when fd == 0 (which is STDIN_FILENO). This means 
+that we have to read from the keyboard. In our code, we have a special case for this.
+We then for a for loops which starts with the number of bytes read being 0 and
+reads till the number of bytes read is the same as the input size. For every
+byte incremented, we read a byte from the keyboard. We then return the number of 
+bytes that are read.
+If fd does not equal 0, we find the file associated with the input fd (the
+file would be NULL is fd = 1). If the file is NULL, we return -1 because the
+file could not be read. Otherwise, we first acquire a lock so no other process
+can read the file. Then we read the file using file_read, which was previously
+defined in the given code. file_read returns the number of bytes read. As we are
+returning uint32_t, we cast the return value of file_read to uint32_t. Once this
+is done, we release the lock so other processes can access the file. We then
+return the number of bytes read.
+
+Write:
+This method is done in a similar fashion to execute_write. It takes in the same 
+arguments as execute_read. The method writes "size" number of bytes from the buffer
+to the open file fd. It returns the number of bytes actually written.
+We have a special case for when fd = 1. In this case, we have to write to the console
+and we do that using the already implemented method called putbuf. We then return
+the number of bytes written.
+Otherwise, we find the file associated with the input fd. If the file is null, we
+return 0, as 0 bytes are written. If the file is found, then we acquire a lock so 
+that no other process can access the file. We then use the given method called
+file_write to return the number of bytes written. Because we return a uint32_t,
+we cast the returned value of file_write to uint32_t. We then release the lock so
+other processes can access the file. We then return the number of bytes actually
+written. 
+
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
 >> and the greatest possible number of inspections of the page table

@@ -106,10 +106,56 @@ new_file->fd = new_fd++;
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
 
+When a file is opened in execute_opened, a memory is allocated for a new struct 
+fd_elems and it is created. The file is given a unique fd number. The struct
+stores the address to the file which has been opened, its unique fd number and
+the tid of the thread on which it is running. This is then pushed to the back
+of the list fd_list, which stores all of the open files.
+When the file is closed, the entry is deleted from fd_list, and the memory is
+freed.
+In our implementation, file descriptors are unique within the entire OS. We found
+this easier to implement as we just stored the tid of the thread on which the
+file was opened. One list kept track of all the opened files.
+
 ---- ALGORITHMS ----
 
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
+
+Read:
+execute_read takes in 3 parameters, which are the fd, buffer and size. The method
+reads the number of bytes (which is the input size), from the file open as fd into
+the buffer. It returns the number of bytes actually read, or -1 if the file
+could not be read.
+There is a special case for when fd == 0 (which is STDIN_FILENO). This means 
+that we have to read from the keyboard. In our code, we have a special case for this.
+We then for a for loops which starts with the number of bytes read being 0 and
+reads till the number of bytes read is the same as the input size. For every
+byte incremented, we read a byte from the keyboard. We then return the number of 
+bytes that are read.
+If fd does not equal 0, we find the file associated with the input fd (the
+file would be NULL is fd = 1). If the file is NULL, we return -1 because the
+file could not be read. Otherwise, we first acquire a lock so no other process
+can read the file. Then we read the file using file_read, which was previously
+defined in the given code. file_read returns the number of bytes read. As we are
+returning uint32_t, we cast the return value of file_read to uint32_t. Once this
+is done, we release the lock so other processes can access the file. We then
+return the number of bytes read.
+
+Write:
+This method is done in a similar fashion to execute_write. It takes in the same 
+arguments as execute_read. The method writes "size" number of bytes from the buffer
+to the open file fd. It returns the number of bytes actually written.
+We have a special case for when fd = 1. In this case, we have to write to the console
+and we do that using the already implemented method called putbuf. We then return
+the number of bytes written.
+Otherwise, we find the file associated with the input fd. If the file is null, we
+return 0, as 0 bytes are written. If the file is found, then we acquire a lock so 
+that no other process can access the file. We then use the given method called
+file_write to return the number of bytes written. Because we return a uint32_t,
+we cast the returned value of file_write to uint32_t. We then release the lock so
+other processes can access the file. We then return the number of bytes actually
+written. 
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
@@ -156,6 +202,16 @@ new_file->fd = new_fd++;
 
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
+
+Advantages to use the list for file descriptors is that it is dynamic. We allocate
+memory when we add an entry to the list, and we free it when we delete it.
+Disadvantages are that we have to iterate through the list several times, which
+can be time consuming. We could have used arrays or hash tables, which would mean
+that we would not need to iterate through possibly several entries. 
+But we did not do this to save memory and because in some cases, we have to iterate
+through the list because we check the tid of every entry and then remove specific ones.
+Implementing a list was the most effective and feasible solution we could come up
+with. It was also already implemented, so it was less time consuming while coding.
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?

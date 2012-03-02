@@ -9,7 +9,7 @@
 >> Fill in the names and email addresses of your group members.
 
 Adam Fiksen  < af1410@ic.ac.uk >
-Ryan Jackson < diddydonuts@gmail.com  >
+Ryan Jackson < rwj10@ic.ac.uk  >
 Sahil Jain   < sdj09@ic.ac.uk  >
 
 ---- PRELIMINARIES ----
@@ -30,19 +30,56 @@ Sahil Jain   < sdj09@ic.ac.uk  >
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+#define MAX_ARGS 100
+
+Sets the maximum number of arguments.
+
+#define STACK_PUSH(esp,type,value) esp-=sizeof (type); *((type*)(esp))=(value)
+
+A macro which pushes a given value to the stack and deals with the stack
+pointer.
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe how you implemented argument parsing.  How do
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
+Argument parsing begins in process_execute, a copy of the command to execute is
+made and an array of arguments is declared. The command is then tokenised,
+corrupting the copy of the command and populating the array of arguments. The
+array of arguments is passed into start_process, where each is first copied to
+the top of the stack (order being irrelevant). The stack pointer is then aligned
+to the nearest 4-byte boundary. Pointers to the arguments which reside at the
+top of the stack are then pushed in reverse order by traversing the array of
+arguments backwards, followed by argv, argc and a dummy return address.
+
+We avoid overflowing the stack page by setting a maximum number of arguments,
+defined in process.h, which ensures that the entire contents of the stack will
+not overflow the size of a page while it is being set up.
+
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
 
+strtok_r(), as opposed to strtok() is reentrant and can therefore be interrupted
+during its execution and invoked again. This is achieved with an extra agrument,
+save_ptr, which saves the current progress of the method, whereas this is stored
+in static memory in strtok(). If strtok() were to be interrupted and called
+again, this static storage would be corrupted and unusable by both instances of
+the method.
+
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
+
+One advantages is that the Unix approach minimises the amount of computation
+that the kernel must do, this ensures that the kernel code can be shorter and is
+more easily maintained.
+
+The Unix approach is also more secure as the kernel has elevated permissions and
+it makes more sense to parse commands in the more secure environment of the
+shell.
 
                  SYSTEM CALLS
                  ============

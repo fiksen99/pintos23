@@ -372,6 +372,10 @@ execute_close (int fd)
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
     if (fd_elem->fd == fd)
     {
+      if (fd_elem->tid != thread_current ()->tid)
+      {
+        return -1;
+      }
       lock_acquire (&file_lock);
       file_close (fd_elem->file);
       lock_release (&file_lock);      

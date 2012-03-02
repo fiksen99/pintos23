@@ -106,6 +106,17 @@ new_file->fd = new_fd++;
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
 
+When a file is opened in execute_opened, a memory is allocated for a new struct 
+fd_elems and it is created. The file is given a unique fd number. The struct
+stores the address to the file which has been opened, its unique fd number and
+the tid of the thread on which it is running. This is then pushed to the back
+of the list fd_list, which stores all of the open files.
+When the file is closed, the entry is deleted from fd_list, and the memory is
+freed.
+In our implementation, file descriptors are unique within the entire OS. We found
+this easier to implement as we just stored the tid of the thread on which the
+file was opened. One list kept track of all the opened files.
+
 ---- ALGORITHMS ----
 
 >> B3: Describe your code for reading and writing user data from the

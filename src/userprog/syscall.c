@@ -181,11 +181,11 @@ execute_exit (struct intr_frame *f, int arg)
 static uint32_t
 execute_exec (const char * file_name)
 {
-//  struct thread * curr = thread_current();
-//  curr->load_fail = false;
+  struct thread * curr = thread_current();
+  curr->load_fail = false;
   tid_t id = process_execute (file_name);
-//  sema_down(&curr->exec_sema);
-//  if (curr->load_fail) return (uint32_t) -1;
+  sema_down(&curr->exec_sema);
+  if (curr->load_fail) return (uint32_t) -1;
   return (uint32_t) id;
 }
 

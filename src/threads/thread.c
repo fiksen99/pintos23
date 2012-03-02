@@ -321,11 +321,14 @@ thread_exit (void)
     printf("%s: exit(%d)\n", current->name, s->status);
     sema_up( &s->sema );
   }
+  else
+  {
+    shutdown_power_off();
+  }
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
-  if(is_main_thread)
-    shutdown_power_off();
+
   intr_disable ();
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
@@ -500,7 +503,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   list_init (&t->children);
-//  sema_init (&t->exec_sema, 0);
+  sema_init (&t->exec_sema, 0);
 
   t->magic = THREAD_MAGIC;
 

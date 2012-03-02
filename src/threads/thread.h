@@ -100,8 +100,8 @@ struct thread
 #endif
     struct list children;               /* List of child processes */
   	struct thread * parent;				      /* Pointer to parent thread */
-//    struct semaphore exec_sema;         /* Used to wait for a child process to load */
-//    bool load_fail;                     /* set to true when child process fails to load */
+    struct semaphore exec_sema;         /* Used to wait for a child process to load */
+    bool load_fail;                     /* set to true when child process fails to load */
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */

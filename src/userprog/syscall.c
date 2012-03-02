@@ -42,7 +42,7 @@ static struct file * find_file_from_fd (int);
 static void check_valid_access ( const uint32_t addr );
 
 static struct list fd_list;
-static int new_fd = 1; //fd to be allocated.
+static int new_fd = 2; //fd to be allocated.
 
 static struct lock file_lock;
 
@@ -181,11 +181,11 @@ execute_exit (struct intr_frame *f, int arg)
 static uint32_t
 execute_exec (const char * file_name)
 {
-//  struct thread * curr = thread_current();
-//  curr->load_fail = false;
+  struct thread * curr = thread_current();
+  curr->load_fail = false;
   tid_t id = process_execute (file_name);
-//  sema_down(&curr->exec_sema);
-//  if (curr->load_fail) return (uint32_t) -1;
+  sema_down(&curr->exec_sema);
+  if (curr->load_fail) return (uint32_t) -1;
   return (uint32_t) id;
 }
 
@@ -285,7 +285,7 @@ execute_open (const char *file)
 
   struct fd_elems *new_file;
   new_file = (struct fd_elems *) malloc (sizeof (struct fd_elems));
-  new_file->fd = ++new_fd;  
+  new_file->fd = new_fd++;
   new_file->file = file_opened;
   new_file->tid = thread_current ()->tid;
   list_push_back (&fd_list, &new_file->elem);
@@ -315,7 +315,7 @@ execute_read (int fd, void *buffer, unsigned size)
   {
     int i;
     for (i = 0; i < (int) size; i++)
-      *(uint8_t *) (buffer + i) = input_getc (); //EOF check?
+      *(uint8_t *) (buffer + i) = input_getc ();
     return (uint32_t) i;
   }
   struct file *file = find_file_from_fd (fd);

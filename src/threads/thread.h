@@ -107,6 +107,7 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
+/* Struct to store statuses of children */
 struct child_status
 {
   tid_t tid;

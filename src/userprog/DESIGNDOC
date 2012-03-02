@@ -66,14 +66,21 @@ semaphore is upped, is able to read the (exit) status.
 
 WITHIN struct thread:
 
-    struct list children;               
+  struct list children;               
 
 List of child processes, needed for process waiting
 
-  	struct thread * parent;				      /* Pointer to parent thread */
+  struct thread * parent;				      /* Pointer to parent thread */
 
 A pointer to the threads parent - needed to change the status of this thread in
 parent's list of children.
+
+  struct semaphore exec_sema;         /* Used to wait for a child process to load */
+  bool load_fail;                     /* set to true when child process fails to load */
+
+The semaphore is used to ensure synchronisation on exec - the parent process must
+wait for the child to up the sema. load_fail informs the parent if the load failed
+(meaning the return id = -1).
 
 struct fd_elems
 {
@@ -97,7 +104,7 @@ declared as below:
 static int new_fd = 2;
 
 This is initialised to 2 because 0 and 1 are already in use. So when a file is 
-added to fd_list, we use new_fd's value, and then increment is. This is done in 
+added to fd_list, we use new_fd's value, and then increment it. This is done in 
 execute_open using the following code:
 
 new_file->fd = new_fd++;
@@ -166,6 +173,13 @@ written.
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+The system call merely calls the process_wait function and returns the id this
+process. The actual implementation of process_wait requires each thread to have
+a list of child_status and a pointer to its parent. Each child status has an id
+relating to the child process, and exit status, and a semaphore. When a child process
+exits, it sets its own status in the parent thread's list to the correct status
+and then ups the semaphore. A parent process will wait on this semaphore, reading
+the childs status when it is allowed to continue.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the

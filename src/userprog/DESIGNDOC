@@ -201,6 +201,26 @@ the childs status when it is allowed to continue.
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+To avoid obscuring the primary function of a code in a morass of error handling,
+we tried to add as many comments as possible in the most relevant pieces of 
+code. We created the function check_valid_access (const uint32_t) to compartmentalise 
+the checking of valid memory accesses.
+To deal with releasing temporarily allocated resources such as memory, locks,
+buffers, etc. we added code to methods which are always called on exit (such
+as thread_exit ()) to act in a similar way to destructors in OOP.
+We obtained locks before accessing any methods which needed files to be read, opened 
+or written. These were always done using file_read(), file_write(), etc.
+We released the lock right after these methods had finished executing.
+In general, we released temporary resources as soon as they were not going to be
+used anymore. 
+We tried to make sure that at all points of exit from a function all resources
+had been freed.
+
+An example is given below, taken from execute_write() in syscall.c:
+  lock_acquire (&file_lock);
+  uint32_t bytes = (uint32_t) file_write (file, buffer, size);
+  lock_release (&file_lock);
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable

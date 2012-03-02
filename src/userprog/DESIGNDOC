@@ -109,6 +109,13 @@ execute_open using the following code:
 
 new_file->fd = new_fd++;
 
+To deny writes to executables, we added a field to struct thread. We added
+struct file *file to struct thread, which carries the address of the executable.
+In load in process.c, we have removed file_close (file), and we use file_deny_write 
+to disallow writes to the executable. In process_exit, we have added file_close (file)
+which automatically lets writing to the file. Implementing this allows us to 
+deny writes to executables, which allows the rox tests to work.
+
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?

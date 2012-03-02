@@ -117,12 +117,9 @@ start_process (void *arguments_)
   /* Round if_.esp down to the nearest multiple of 4 */
   if_.esp -= ((uint32_t) if_.esp) % 4;
 
-  /* Push NULL to the stack to ensure that argv [argc] = NULL */
-  STACK_PUSH (if_.esp, void *, NULL);
-
-  /* Push arguments in reverse order */
+  /* Push arguments in reverse order, including argv [argc], which = NULL */
   uint32_t argc = i;
-  for (i--; i >= 0; i--)
+  for (; i >= 0; i--)
   {
     STACK_PUSH (if_.esp, char *, arguments [i]);
   }
@@ -141,15 +138,6 @@ start_process (void *arguments_)
 
   /* Allow the parent process to continue now it has loaded*/
 //  sema_up (&curr->exec_sema);
-
-  /* ***************************** */
-  /*void **p;
-  for (p = if_.esp; p < PHYS_BASE; p++)
-  {
-    printf ("%p: %p\n", p, *p);
-
-  }*/
-  /* ***************************** */
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

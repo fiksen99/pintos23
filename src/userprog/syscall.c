@@ -56,14 +56,6 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f)
 {
-  uint32_t *stackptr = f->esp;
-  int syscall = *stackptr;
-  uint32_t result; // return value stored in eax
-  if (syscall == SYS_HALT) /* ZERO arguments */
-  {
-    execute_halt ();
-    NOT_REACHED ();
-  }
   else if (syscall == SYS_EXIT || syscall == SYS_EXEC || syscall == SYS_WAIT
            || syscall == SYS_REMOVE || syscall == SYS_OPEN
            || syscall == SYS_FILESIZE || syscall == SYS_TELL
@@ -172,7 +164,7 @@ static uint32_t
 execute_exec (const char * file_name)
 {
   tid_t id = process_execute( file_name );
-  return (uint32_t)id;
+  return (uint32_t) id;
 }
 
 static uint32_t
@@ -203,9 +195,45 @@ static uint32_t
 execute_create (const char *file, unsigned initial_size)
 {
   lock_acquire (&file_lock);
-  bool success = filesys_create (file, initial_size);
+  if (!filesys_create (file, initial_size))
+  {
+    // Failed to create file
+    lock_release (&file_lock);
+    return (uint32_t) false;
+  }
+  struct file *file_opened = filesys_open (file);
+  if (file_opened == NULL)
+  {
+    // Failed to open file
+    lock_release (&file_lock);
+    return (uint32_t) false;
+  }
+  void *zeroes = palloc_get_page (PAL_ZERO);
+  if (zeroes == NULL)
+  {
+    // Failed to allocate page of zeroes to write to file
+    file_close (file_opened);
+    lock_release (&file_lock);
+    return (uint32_t) false;
+  }
+  uint32_t bytes_written;
+  for (int i = 0; i < initial_size / PAGE_SIZE; i++)
+  {
+    bytes_written = file_write (file_opened, zeroes, PAGE_SIZE);
+    if (bytes_written < PAGE_SIZE)
+    {
+      // Failed to write some zeroes
+      file_close (file_opened);
+      palloc_free_page (zeroes);
+      lock_release (&file_lock);
+      return (uint32_t) false;
+    }
+  }
+  bytes_written = file_write (file_opened, zeroes, initial_size % PAGE_SIZE);
+  file_close (file_opened);
+  palloc_free_page (zeroes);
   lock_release (&file_lock);
-  return (uint32_t) success;
+  return (uint32_t) (bytes_written == initial_size % PAGE_SIZE);
 }
 
 static uint32_t
@@ -337,7 +365,9 @@ static struct file *
 find_file_from_fd (int fd)
 {
   struct list_elem *e;
-  for(e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
+  if (list_empty (&fd_list))
+    return NULL;
+  for (e = list_begin (&fd_list); e != list_back (&fd_list); e = list_next (e))
   {
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
     if (fd_elem->fd == fd)

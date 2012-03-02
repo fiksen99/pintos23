@@ -88,12 +88,15 @@ start_process (void *arguments_)
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   bool success = load (command, &if_.eip, &if_.esp);
+//  struct thread * curr = thread_current();
 
   /* If load failed, quit. */
   if (!success)
   {
     palloc_free_page (command);
     palloc_free_page (arguments);
+//    curr->parent->load_fail = true;
+//    sema_up (&curr->exec_sema);
     thread_exit ();
   }
 
@@ -135,6 +138,9 @@ start_process (void *arguments_)
 
   /* Push a fake return address */
   STACK_PUSH (if_.esp, void *, NULL);
+
+  /* Allow the parent process to continue now it has loaded*/
+//  sema_up (&curr->exec_sema);
 
   /* ***************************** */
   /*void **p;

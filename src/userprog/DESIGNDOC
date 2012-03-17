@@ -289,8 +289,10 @@ no waiting is necessary. Because C is already dead, there are no race conditions
 The child_status struct is removed from the parent's list and the memory is freed
 in both these conditions at the end of process_wait.
 
-If P
-
+P doesn't wait:
+If P doesn't wait for C before exiting, clearly no race conditions will occur on
+wait(C). Freeing resources occurs when each thread is exited - that thread's list
+of child_statuses is iterated through and freed.
 
 
 ---- RATIONALE ----

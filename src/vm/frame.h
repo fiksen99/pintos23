@@ -7,13 +7,14 @@
 struct frame
 {
   struct page *addr;
-  struct thread *owner;
+  tid_t owner_tid;
   struct hash_elem elem;
 }
 
 extern struct hash frame_table;
 
 void frame_init ();
+void add_to_frame_table();
 
 bool frame_hash_less (const struct hash_elem *a, const struct hash_elem *b,
                       void *aux);

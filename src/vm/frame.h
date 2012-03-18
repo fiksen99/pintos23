@@ -7,6 +7,7 @@
 struct frame
 {
   struct page *addr;
+  struct thread *owner;
   struct hash_elem elem;
 }
 

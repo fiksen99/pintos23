@@ -1,7 +1,8 @@
-#ifndef VM_PAGE_H
-#define VM_PAGE_H
+#ifndef PAGE_H
+#define PAGE_H
 
 #include <hash.h>
+#include "vm/frame.h"
 
 /* TODO
 *  add struct page to struct thread
@@ -32,7 +33,7 @@ struct zero_data
 struct page
 {
   void *addr;                 /* Virtual address */
-  struct hash_elem hash_elem; /* Hash table element */
+  struct hash_elem elem; /* Hash table element */
 
   enum
   {
@@ -54,12 +55,8 @@ struct page
   //what resources to free on process termination
 };
 
-/* Returns a hash value for page p */
-unsigned
-page_hash (const struct hash_elem *, void *);
-
-/* Returns true if page a precedes page b. */
-bool
-page_less (const struct hash_elem *, const struct hash_elem *, void *);
+void spt_init (struct hash *spt);
+bool spt_hash_less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
+unsigned spt_hash_bytes (const struct hash_elem *e, void *aux);
 
 #endif

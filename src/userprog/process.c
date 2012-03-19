@@ -18,6 +18,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -40,7 +41,7 @@ process_execute (const char *command)
   char **arguments = frame_get_page (0);
   if (arguments == 0)
   {
-    palloc_free_page (command_copy);
+    frame_free_page (command_copy);
     return TID_ERROR;
   }
 
@@ -53,8 +54,8 @@ process_execute (const char *command)
   {
     if (i >= MAX_ARGS)
     {
-      palloc_free_page (command_copy);
-      palloc_free_page (arguments);
+      frame_free_page (command_copy);
+      frame_free_page (arguments);
       return TID_ERROR;
     }
     arguments [i] = token;
@@ -66,8 +67,8 @@ process_execute (const char *command)
                              arguments);
   if (tid == TID_ERROR)
   {
-    palloc_free_page (command_copy);
-    palloc_free_page (arguments);
+    frame_free_page (command_copy);
+    frame_free_page (arguments);
   }
   return tid;
 }
@@ -93,8 +94,8 @@ start_process (void *arguments_)
   /* If load failed, quit. */
   if (!success)
   {
-    palloc_free_page (command);
-    palloc_free_page (arguments);
+    frame_free_page (command);
+    frame_free_page (arguments);
     curr->parent->load_fail = true;
     sema_up (&curr->parent->exec_sema);
     thread_exit ();
@@ -117,7 +118,7 @@ start_process (void *arguments_)
     arguments [i] = if_.esp;
   }
 
-  palloc_free_page (command);
+  frame_free_page (command);
 
   /* Round if_.esp down to the nearest multiple of 4 */
   if_.esp -= ((uint32_t) if_.esp) % 4;
@@ -129,7 +130,7 @@ start_process (void *arguments_)
     STACK_PUSH (if_.esp, char *, arguments [i]);
   }
 
-  palloc_free_page (arguments);
+  frame_free_page (arguments);
 
   /* Push argv */
   void *argv = if_.esp;
@@ -502,7 +503,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
-          palloc_free_page (kpage);
+          frame_free_page (kpage);
           return false; 
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
@@ -510,7 +511,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable)) 
         {
-          palloc_free_page (kpage);
+          frame_free_page (kpage);
           return false; 
         }
 
@@ -537,7 +538,7 @@ setup_stack (void **esp)
       if (success)
         *esp = PHYS_BASE;
       else
-        palloc_free_page (kpage);
+        frame_free_page (kpage);
     }
   return success;
 }

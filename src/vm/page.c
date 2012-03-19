@@ -1,12 +1,10 @@
 #include "vm/page.h"
 #include <hash.h>
 
-struct hash spt_table;
-
 void
-spt_init ()
+spt_init (struct hash *spt)
 {
-  hash_init (&spt_table, spt_hash_bytes, spt_hash_less, NULL);
+  hash_init (spt, spt_hash_bytes, spt_hash_less, NULL);
 }
 
 bool

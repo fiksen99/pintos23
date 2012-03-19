@@ -6,11 +6,15 @@
 #include "threads/thread.h"
 #include "vm/page.h"
 
+#define DYNAMIC_MEM_CEIL 0x04000000
+#define DYNAMIC_MEM_FLOOR 0x00100000
+
 struct frame
 {
-  struct page *addr;
+  void *addr;
   tid_t owner_tid;
   struct hash_elem elem;
+  bool used;
 };
 
 extern struct hash frame_table;

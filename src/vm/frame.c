@@ -1,4 +1,6 @@
 #include "vm/frame.h"
+#include "threads/palloc.h"
+#include <stdint.h>
 
 struct hash frame_table;
 
@@ -6,6 +8,23 @@ void
 frame_init ()
 {
   hash_init (&frame_table, frame_hash_bytes, frame_hash_less, NULL);
+
+  /* This must be executed before any other calls to palloc_get_multiple,
+     interrupts are disabled so this is ensured. */
+  unsigned int frames = (DYNAMIC_MEMORY_CEIL - DYNAMIC_MEMORY_FLOOR) / PGSIZE;
+  unsigned int structs = frames * sizeof (struct frame);
+  unsigned int pages = structs / PGSIZE;
+  void *jnvfi = palloc_get_multiple (PAL_NOFRAME, pages);
+  ASSERT (jnvfi != NULL);
+  // need to add jnvfi to frame table at some point
+  struct frame *f;
+  for (f = DYNAMIC_MEMORY_FLOOR; f < DYNAMIC_MEMORY_CEIL; f++)
+  {
+    f->used = false;
+    hash_insert (&frame_table, &f->elem);
+  }
+  uint32_t cfhjd;
+  
 }
 
 bool

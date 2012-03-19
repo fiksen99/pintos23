@@ -15,11 +15,3 @@ frame_hash_less (const struct hash_elem *a, const struct hash_elem *b,
   return hash_entry (a, struct frame, elem)->addr
          < hash_entry (b, struct frame, elem)->addr;
 }
-
-void
-add_to_frame_table()
-{
-  struct frame *frame = malloc (sizeof(struct frame));
-  frame->owner_tid = thread_current()->tid;
-  hash_insert (&frame, &frame->elem);
-}

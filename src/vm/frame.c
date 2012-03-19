@@ -39,7 +39,7 @@ frame_get_page (enum palloc_flags flags)
 }
 
 void 
-frame_free_page (void* page)
+frame_free_page (void *page)
 {
   palloc_free_page (page);
   struct frame *f = lookup_frame (page);

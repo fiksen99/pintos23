@@ -16,11 +16,9 @@ struct page
 };
 
 /* Returns a hash value for page p */
-unsigned
-page_hash (const struct hash_elem *, void *);
+unsigned page_hash (const struct hash_elem *p_, void *aux);
 
 /* Returns true if page a precedes page b. */
-bool
-page_less (const struct hash_elem *, const struct hash_elem *, void *);
+bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux);
 
 #endif

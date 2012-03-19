@@ -1,18 +1,25 @@
 #include "vm/page.h"
 #include <hash.h>
 
+struct hash spt_table;
 
-unsigned
-page_hash (const struct hash_elem *p_, void *aux)
+void
+spt_init ()
 {
-  const struct page *p = hash_entry (p_, struct page, hash_elem);
-  return hash_bytes (&p->addr, sizeof (p->addr));
+  hash_init (&spt_table, spt_hash_bytes, spt_hash_less, NULL);
 }
 
 bool
-page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux)
+spt_hash_less (const struct hash_elem *a, const struct hash_elem *b,
+               void *aux UNUSED)
 {
-  const struct page *a = hash_entry (a_, struct page, hash_elem);
-  const struct page *b = hash_entry (b_, struct page, hash_elem);
-  return a->addr < b->addr;
+  return hash_entry (a, struct page, elem)->addr
+         < hash_entry (b, struct page, elem)->addr;
+}
+
+unsigned
+spt_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
+{
+  struct page *spt = hash_entry (elem, struct page, elem);
+  return hash_bytes (spt->addr, sizeof (void *));
 }

@@ -22,7 +22,7 @@ unsigned
 frame_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
 {
   struct frame *frame = hash_entry (elem, struct frame, elem);
-  return hash_bytes (frame->addr, sizeof(struct page*));
+  return hash_bytes (frame->addr, sizeof(void *));
 }
 
 void *

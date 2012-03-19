@@ -32,8 +32,27 @@ frame_get_page (enum palloc_flags flags)
   if (page == NULL)
     return NULL;
   struct frame *frame = malloc (sizeof (struct frame));
-  frame -> addr = page;
-  frame -> owner_tid = thread_current () -> tid;
-  hash_insert( &frame_table, &frame -> elem );
+  frame->addr = page;
+  frame->owner_tid = thread_current ()->tid;
+  hash_insert (&frame_table, &frame->elem);
   return page;
+}
+
+void 
+frame_free_page (void* page)
+{
+  palloc_free_page (page);
+  struct frame *f = lookup_frame (page);
+  hash_delete (&frame_table, &f->elem);
+}
+
+struct frame *
+lookup_frame (void *addr)
+{
+  struct frame frame;
+  struct hash_elem *e;
+
+  frame.addr = addr;
+  e = hash_find (&frame_table, &frame.elem);
+  return e != NULL ? hash_entry (e, struct frame, elem) : NULL;
 }

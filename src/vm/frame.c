@@ -44,6 +44,7 @@ frame_free_page (void* page)
   palloc_free_page (page);
   struct frame *f = lookup_frame (page);
   hash_delete (&frame_table, &f->elem);
+  free (f);
 }
 
 struct frame *

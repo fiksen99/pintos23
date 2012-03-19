@@ -17,14 +17,19 @@ frame_init ()
   void *jnvfi = palloc_get_multiple (PAL_NOFRAME, pages);
   ASSERT (jnvfi != NULL);
   // need to add jnvfi to frame table at some point
-  struct frame *f;
-  for (f = DYNAMIC_MEMORY_FLOOR; f < DYNAMIC_MEMORY_CEIL; f++)
+  unsigned int f;
+  for (f = 0; f < frames; f++)
   {
-    f->used = false;
-    hash_insert (&frame_table, &f->elem);
+    struct frame *frame = jnvfi + (f * sizeof (struct frame));
+    frame->used = false;
+    hash_insert (&frame_table, &frame->elem);
   }
-  uint32_t cfhjd;
-  
+  unsigned int cfhjd;
+  for (cfhjd = 0; cfhjd < pages; cfhjd++)
+  {
+    void *addr = jnvfi + (cfhjd * PGSIZE);
+    
+  }
 }
 
 bool

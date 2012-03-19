@@ -93,14 +93,6 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
   {
     if (flags & PAL_ZERO)
       memset (pages, 0, PGSIZE * page_cnt);
-    unsigned int i;
-    for (i = 0 ; i < page_cnt ; i++)
-    {
-      struct frame *frame = malloc (sizeof (struct frame));
-      frame->addr = pages+i*PGSIZE;
-      frame->owner_tid = thread_current ()->tid;
-      hash_insert(&frame_table, &frame->elem); 
-    }
   }
   else 
   {

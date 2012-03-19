@@ -31,13 +31,13 @@ process_execute (const char *command)
 {
   /* Make a copy of command.
      Otherwise there's a race between the caller and load(). */
-  char *command_copy = palloc_get_page (0);
+  char *command_copy = frame_get_page (0);
   if (command_copy == NULL)
     return TID_ERROR;
   strlcpy (command_copy, command, PGSIZE);
 
   /* Create an array to store the arguments */
-  char **arguments = palloc_get_page (0);
+  char **arguments = frame_get_page (0);
   if (arguments == 0)
   {
     palloc_free_page (command_copy);
@@ -493,7 +493,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
+      uint8_t *kpage = frame_get_page (PAL_USER);
       if (kpage == NULL)
         return false;
 
@@ -528,7 +528,7 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  kpage = frame_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);

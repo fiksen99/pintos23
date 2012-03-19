@@ -5,7 +5,7 @@ struct hash frame_table;
 void
 frame_init ()
 {
-  hash_init (&frame_table, hash_bytes, compare_hash_less, );
+  hash_init (&frame_table, hash_bytes, frame_hash_less, NULL);
 }
 
 bool

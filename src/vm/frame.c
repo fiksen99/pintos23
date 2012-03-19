@@ -1,4 +1,4 @@
-#include "frame.h"
+#include "vm/frame.h"
 
 struct hash frame_table;
 

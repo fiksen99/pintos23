@@ -11,6 +11,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "vm/frame.h"
+#include "threads/malloc.h"
 
 /* Page allocator.  Hands out memory in page-size (or
    page-multiple) chunks.  See malloc.h for an allocator that
@@ -92,9 +93,12 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
   {
     if (flags & PAL_ZERO)
       memset (pages, 0, PGSIZE * page_cnt);
-    for (int i = 0 ; i < page_cnt ; i++)
+    unsigned int i;
+    for (i = 0 ; i < page_cnt ; i++)
     {
-      struct frame frame = {.addr = pages+i*PGSIZE, owner_tid = thread_current ()->tid};
+      struct frame *frame = malloc (sizeof (struct frame));
+      frame->addr = pages+i*PGSIZE;
+      frame->owner_tid = thread_current ()->tid;
       hash_insert(&frame_table, &frame->elem); 
     }
   }

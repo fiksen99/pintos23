@@ -13,7 +13,6 @@ struct page
   struct hash_elem hash_elem; /* Has table element */
   void *addr;                 /* Virtual address */
   struct frame *frame;        /* Frame the page is stored in */
-
 };
 
 /* Returns a hash value for page p */

@@ -31,9 +31,14 @@ frame_get_page (enum palloc_flags flags)
   void *page = palloc_get_page (flags);
   if (page == NULL)
     return NULL;
+  // Always in mem after a succesful palloc
+  struct page *supp_page = malloc (sizeof (struct page));
+  supp_page->addr = page;
+  supp_page->page_location = PG_MEM;
   struct frame *frame = malloc (sizeof (struct frame));
   frame -> addr = page;
   frame -> owner_tid = thread_current () -> tid;
   hash_insert( &frame_table, &frame -> elem );
+  supp_page->data.mem.frame = frame;
   return page;
 }

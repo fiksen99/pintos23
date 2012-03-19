@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "threads/synch.h"
 #include "filesys/file.h"
+#include <hash.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -105,6 +106,8 @@ struct thread
     bool load_fail;                     /* set to true when child process fails to load */
 
     struct file *file;
+
+    struct hash supp_page_table;       /* the suplemental page table to be used by this thread */
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */

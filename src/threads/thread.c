@@ -510,6 +510,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   list_init (&t->children);
   sema_init (&t->exec_sema, 0);
+  spt_init (&t->supp_page_table);
 
   t->magic = THREAD_MAGIC;
 

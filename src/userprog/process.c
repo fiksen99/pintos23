@@ -99,6 +99,8 @@ start_process (void *arguments_)
     sema_up (&curr->parent->exec_sema);
     thread_exit ();
   }
+  spt_init (&curr->supp_page_table);
+  
   /* Allow the parent process to continue now it has loaded*/
 
   sema_up (&curr->parent->exec_sema);

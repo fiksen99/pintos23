@@ -1,6 +1,5 @@
 #include "vm/frame.h"
 #include "threads/palloc.h"
-//#include "threads/thread.c"
 #include "threads/malloc.h"
 
 struct hash frame_table;

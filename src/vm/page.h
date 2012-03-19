@@ -10,8 +10,8 @@
 
 struct page
 {
-  struct hash_elem hash_elem; /* Has table element */
   void *addr;                 /* Virtual address */
+  struct hash_elem hash_elem; /* Hash table element */
   struct frame *frame;        /* Frame the page is stored in */
 };
 

@@ -459,8 +459,6 @@ mmap (int fd, void *addr)
   */
   
   size_t pages = filesize / PGSIZE + (filesize % PGSIZE == 0 ? 0 : 1);
-  palloc_get_multiple (0, pages); // might need to send pal_user
-  // need to install
 
   unsigned int i;
   off_t offset;

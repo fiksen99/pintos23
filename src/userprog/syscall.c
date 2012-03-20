@@ -1,12 +1,3 @@
-/*TODO:
-* fix synchronisation of execute
-* waiting on a process
-* executing a process
-* initialising a thread
-* destroying a thread
-* deallocate thread id at some point(see execute_exec)
-* initialise list of child threads
-*/
 
 #include "userprog/syscall.h"
 #include <stdio.h>
@@ -41,6 +32,9 @@ static uint32_t execute_close (int);
 static struct file * find_file_from_fd (int);
 static void check_valid_access ( const uint32_t addr );
 
+void munmap (mapid_t);
+mapid_t mmap (int, void *);
+
 static struct list fd_list;
 static int new_fd = 2; //fd to be allocated.
 
@@ -69,7 +63,7 @@ syscall_handler (struct intr_frame *f)
   else if (syscall == SYS_EXIT || syscall == SYS_EXEC || syscall == SYS_WAIT
            || syscall == SYS_REMOVE || syscall == SYS_OPEN
            || syscall == SYS_FILESIZE || syscall == SYS_TELL
-           || syscall == SYS_CLOSE) /* ONE argument */
+           || syscall == SYS_CLOSE || syscall == SYS_MMAP) /* ONE argument */
   {
     uint32_t *arg = stackptr + 1;
     if (syscall == SYS_EXIT)
@@ -118,31 +112,28 @@ syscall_handler (struct intr_frame *f)
 	    check_valid_access (*arg1);
       result = execute_create ((char *) *arg1, *arg2);
     }
-    else
+    else if (syscall == SYS_SEEK)
     {
       result = execute_seek ((int) *arg1, *arg2);
     }
+    else
+    {
+      result = mmap ((int) *arg1, (void *) *arg2); 
+    }
   }
-  else if ( syscall == SYS_READ || syscall == SYS_WRITE )
-       /* THREE arguments */
+  else if ( syscall == SYS_READ || syscall == SYS_WRITE ) /* THREE arguments */
   {
     int fd = *(stackptr + 1);
     void *buffer = (void*) *(stackptr + 2);
 	  check_valid_access ((uint32_t) buffer);
     unsigned size = *(stackptr + 3);
     if (syscall == SYS_WRITE)
-    {
       result = execute_write (fd, buffer, size);
-    }
     else
-    {
       result = execute_read (fd, buffer, size);
-    }
   }
   else
-  {
     thread_exit ();
-  }
   f->eax = result;
 }
 
@@ -360,7 +351,6 @@ execute_tell (int fd)
   return position;
 }
 
-/*TODO remove ALL open file descriptors*/
 static uint32_t
 execute_close (int fd)
 {
@@ -440,3 +430,37 @@ close_thread_fds (void)
     }
   }
 }
+
+
+/* Task 3 Implementation */
+
+/*
+TODO:
+1. add calls to syscall handler
+
+*/
+
+mapid_t
+mmap (int fd, void *addr)
+{
+  struct file *file = find_file_by_fd (fd);
+  if (fd < 2|| addr == 0 || file == NULL)
+    return -1; // Fails
+  int filesize = (int) file_length (file);
+  if (filesize == 0)
+    return -1; // Fails
+  struct file *file_opened = file_reopen (file);
+  
+
+
+
+  return 0;
+}
+
+void
+munmap (mapid_t mapping UNUSED)
+{
+
+}
+
+

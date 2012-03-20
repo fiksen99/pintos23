@@ -4,6 +4,10 @@
 #include "lib/kernel/list.h"
 #include "threads/thread.h"
 
+/* Map region identifier. */
+typedef uint32_t mapid_t;
+#define MAP_FAILED ((mapid_t) - 1)
+
 /* Implementation for file descriptor */
 struct fd_elems
 {

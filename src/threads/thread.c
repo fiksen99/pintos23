@@ -276,7 +276,7 @@ struct thread *
 thread_current (void) 
 {
   struct thread *t = running_thread ();
-  
+  printf("thread name: %s\nmagic number: %x, should be: %x\n", t->name, t->magic, THREAD_MAGIC);
   /* Make sure T is really a thread.
      If either of these assertions fire, then your thread may
      have overflowed its stack.  Each thread has less than 4 kB
@@ -511,7 +511,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   list_init (&t->children);
   sema_init (&t->exec_sema, 0);
-  //spt_init (&t->supp_page_table);
   //CANT CALL THIS HERE, called by thead_init before palloc)init has been called!!!!!!
 
   t->magic = THREAD_MAGIC;

@@ -32,7 +32,7 @@ struct zero_data
 
 struct page
 {
-  const void *addr;           /* Virtual address */
+  void *addr;           /* Virtual address */
   struct hash_elem elem;      /* Hash table element */
 
   enum

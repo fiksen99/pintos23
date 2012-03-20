@@ -9,6 +9,8 @@
 #include "userprog/process.h"
 #include "devices/block.h"
 #include "threads/vaddr.h"
+#include "userprog/pagedir.h"
+#include <string.h>
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -162,10 +164,12 @@ page_fault (struct intr_frame *f)
           write ? "writing" : "reading",
           user ? "user" : "kernel");
   kill (f);*/
-  struct thread *curr = thread_current();
   if (not_present)
   {
-    struct page *page = page_lookup (&curr->supp_page_table, fault_addr);
+    //possibly need to round up not down
+    printf( "page not present in page fault");
+    struct thread *curr = thread_current();
+    struct page *page = page_lookup (&curr->supp_page_table, pg_round_down (fault_addr));
     if (page == NULL)
     {
       //page doesnt exist
@@ -183,14 +187,14 @@ page_fault (struct intr_frame *f)
       } else if (page->page_location == PG_DISK)
       {
         struct frame *frame = get_free_frame();
-        off_t bytes_read = file_read (page->data.disk.file, page->addr, PGSIZE);
-        off_t i;
-        for (i = bytes_read ; i < PGSIZE ; i++)
-        {
-          *((uint32_t*)page->addr+i) = 0;
-        }
+        int read_bytes = file_read (page->data.disk.file, page->addr, PGSIZE);
+        memset (page->addr + read_bytes, 0, PGSIZE-read_bytes);
         frame->addr = page->addr;
+        pagedir_set_page (thread_current()->pagedir, fault_addr, page->addr, true );
+        printf("gets correctly from filesys");
+        return;
       }
     }
   }
+  kill (f);
 }

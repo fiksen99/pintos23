@@ -436,25 +436,50 @@ close_thread_fds (void)
 
 /*
 TODO:
-1. add calls to syscall handler
+add calls to syscall handler
+
 
 */
 
-mapid_t
+mapid_t 
 mmap (int fd, void *addr)
 {
-  struct file *file = find_file_by_fd (fd);
-  if (fd < 2|| addr == 0 || file == NULL)
+  struct file *file = find_file_from_fd (fd);
+  if (fd < 2 || (int) addr == 0 || file == NULL)
     return -1; // Fails
-  int filesize = (int) file_length (file);
+
+  off_t filesize = file_length (file);
   if (filesize == 0)
     return -1; // Fails
+
   struct file *file_opened = file_reopen (file);
-  
+  filesize = file_length (file_opened);
 
+  off_t mod = (off_t) filesize % PGSIZE;
+  if (mod != 0)
+  {
+    /*some bytes in the final mapped page stick out beyond the end of file. 
+      set these bytes to 0 when the page is faulted in from the file system, 
+      and discard them when the page is written back to disk*/
+    off_t div = (off_t) filesize / PGSIZE;
+    file_write_at (file_opened, addr, mod, (PGSIZE * div)); 
+    // TODO: not sure if we use addr here or what..? ^
+  }
 
+  mapid_t mapping_id = (mapid_t) addr;
 
-  return 0;
+  off_t b;
+  for (;filesize > 0; filesize -= b)
+  {
+    if (filesize < PGSIZE)
+      b = filesize;
+    else
+      b = PGSIZE;
+
+    //add a page lazily??
+    addr += PGSIZE;
+  }
+  return mapping_id;
 }
 
 void
@@ -462,5 +487,3 @@ munmap (mapid_t mapping UNUSED)
 {
 
 }
-
-

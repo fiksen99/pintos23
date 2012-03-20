@@ -1,4 +1,3 @@
-
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
@@ -14,6 +13,7 @@
 #include "filesys/file.h"
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
+#include "vm/frame.h"
 
 static void syscall_handler (struct intr_frame *);
 static void execute_halt (void);
@@ -440,7 +440,9 @@ add calls to syscall handler
 
 
 */
-
+/* If successful, this function returns a mapping ID that uniquely identifies 
+   the mapping within the process. For a unique mapping ID, we have chosen the 
+   address which is the parameter in the function */
 mapid_t 
 mmap (int fd, void *addr)
 {
@@ -455,29 +457,29 @@ mmap (int fd, void *addr)
   struct file *file_opened = file_reopen (file);
   filesize = file_length (file_opened);
 
-  off_t mod = (off_t) filesize % PGSIZE;
+  off_t mod = filesize % (off_t) PGSIZE;
   if (mod != 0)
   {
-    /*some bytes in the final mapped page stick out beyond the end of file. 
-      set these bytes to 0 when the page is faulted in from the file system, 
-      and discard them when the page is written back to disk*/
-    off_t div = (off_t) filesize / PGSIZE;
-    file_write_at (file_opened, addr, mod, (PGSIZE * div)); 
+    off_t div = filesize / (off_t) PGSIZE;
+    file_write_at (file_opened, addr, mod, (off_t) (PGSIZE * div)); 
     // TODO: not sure if we use addr here or what..? ^
   }
 
   mapid_t mapping_id = (mapid_t) addr;
-
   off_t b;
+
   for (;filesize > 0; filesize -= b)
   {
     if (filesize < PGSIZE)
       b = filesize;
     else
-      b = PGSIZE;
+      b = (off_t) PGSIZE;
 
-    //add a page lazily??
-    addr += PGSIZE;
+    struct frame *f = get_free_frame();
+    f->addr = addr;
+    f->owner_tid = thread_current ()->tid;
+
+    addr += PGSIZE;    
   }
   return mapping_id;
 }

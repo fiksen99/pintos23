@@ -12,7 +12,6 @@ struct frame
   void *addr;               /* Page address. */
   tid_t owner_tid;
   struct hash_elem elem;
-  bool used;
 };
 
 extern struct hash frame_table;

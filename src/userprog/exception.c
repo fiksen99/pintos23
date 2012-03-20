@@ -4,6 +4,8 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "vm/page.h"
+#include "vm/frame.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -151,10 +153,33 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
+/*  printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-  kill (f);
+  kill (f);*/
+  struct thread *curr = thread_current();
+  if (not_present)
+  {
+    struct page *page = page_lookup (&curr->supp_page_table, fault_addr);
+    if (page == NULL)
+    {
+      //ignore for now
+      printf( "page fault at %p: page doesn't exist", fault_addr);
+      kill(f); //TODO
+    } else
+    {
+      //page exists, needs to be loaded into frame table
+      if (page->page_location == PG_SWAP)
+      {
+        // TODO: global swap table.
+        // gets page from swap table and moves it to a free frame
+        // race conditions
+      } else if (page->page_location == PG_DISK)
+      {
+        
+      }
+    }
+  }
 }

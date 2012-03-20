@@ -21,3 +21,12 @@ spt_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
   struct page *spt = hash_entry (elem, struct page, elem);
   return hash_bytes (spt->addr, sizeof (void *));
 }
+
+struct page *
+page_lookup (struct hash * spt, const void *address)
+{
+  struct page p = {.addr = address};
+  struct hash_elem *e;
+  e = hash_find (spt, &p.elem);
+  return e != NULL ? hash_entry (e, struct page, elem) : NULL;
+}

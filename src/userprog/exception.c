@@ -167,9 +167,9 @@ page_fault (struct intr_frame *f)
   if (not_present)
   {
     //possibly need to round up not down
-    printf( "page not present in page fault");
     struct thread *curr = thread_current();
     struct page *page = page_lookup (&curr->supp_page_table, pg_round_down (fault_addr));
+    printf("looked up page");
     if (page == NULL)
     {
       //page doesnt exist
@@ -186,7 +186,9 @@ page_fault (struct intr_frame *f)
         //TODO all of this
       } else if (page->page_location == PG_DISK)
       {
+        printf("on disk\n");
         struct frame *frame = get_free_frame();
+        
         int read_bytes = file_read (page->data.disk.file, page->addr, PGSIZE);
         memset (page->addr + read_bytes, 0, PGSIZE-read_bytes);
         frame->addr = page->addr;

@@ -28,19 +28,17 @@ frame_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
 void *
 frame_get_page (enum palloc_flags flags)
 {
-  void *page = palloc_get_page (flags);
-  if (page == NULL)
+  void *kpage = palloc_get_page (flags);
+  if (kpage == NULL)
     return NULL;
   // Always in mem after a succesful palloc
   struct page *supp_page = malloc (sizeof (struct page));
-  supp_page->addr = page;
+  supp_page->addr = kpage;
   supp_page->page_location = PG_MEM;
-  struct frame *frame = malloc (sizeof (struct frame));
-  frame->addr = page;
-  frame->owner_tid = thread_current ()->tid;
-  hash_insert (&frame_table, &frame->elem);
+  struct frame *frame = get_free_frame ();
+  frame->addr = kpage;
   supp_page->data.mem.frame = frame;
-  return page;
+  return kpage;
 }
 
 void 
@@ -61,4 +59,15 @@ lookup_frame (void *addr)
   frame.addr = addr;
   e = hash_find (&frame_table, &frame.elem);
   return e != NULL ? hash_entry (e, struct frame, elem) : NULL;
+}
+
+
+//TODO: currently assumes always free frame.
+struct frame *
+get_free_frame (void)
+{
+  struct frame *frame = malloc (sizeof (struct frame));
+  frame->owner_tid = thread_current ()->tid;
+  hash_insert (&frame_table, &frame->elem);
+  return frame;
 }

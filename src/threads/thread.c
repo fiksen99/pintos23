@@ -18,6 +18,7 @@
 #endif
 #include "devices/shutdown.h"
 #include "userprog/syscall.h"
+#include "vm/page.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -510,7 +511,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   list_init (&t->children);
   sema_init (&t->exec_sema, 0);
-  spt_init (&t->supp_page_table);
+  //spt_init (&t->supp_page_table);
+  //CANT CALL THIS HERE, called by thead_init before palloc)init has been called!!!!!!
 
   t->magic = THREAD_MAGIC;
 

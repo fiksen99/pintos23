@@ -6,6 +6,9 @@
 #include "threads/thread.h"
 #include "vm/page.h"
 #include "vm/frame.h"
+#include "userprog/process.h"
+#include "devices/block.h"
+#include "threads/vaddr.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -165,20 +168,28 @@ page_fault (struct intr_frame *f)
     struct page *page = page_lookup (&curr->supp_page_table, fault_addr);
     if (page == NULL)
     {
-      //ignore for now
-      printf( "page fault at %p: page doesn't exist", fault_addr);
-      kill(f); //TODO
+      //page doesnt exist
+      /*TODO: modify process_exit to free all new resources */
+      process_exit ();
     } else
     {
       //page exists, needs to be loaded into frame table
       if (page->page_location == PG_SWAP)
       {
-        // TODO: global swap table.
         // gets page from swap table and moves it to a free frame
-        // race conditions
+        // race conditions?
+        struct block *block = block_get_role(BLOCK_SWAP);
+        //TODO all of this
       } else if (page->page_location == PG_DISK)
       {
-        
+        struct frame *frame = get_free_frame();
+        off_t bytes_read = file_read (page->data.disk.file, page->addr, PGSIZE);
+        off_t i;
+        for (i = bytes_read ; i < PGSIZE ; i++)
+        {
+          *((uint32_t*)page->addr+i) = 0;
+        }
+        frame->addr = page->addr;
       }
     }
   }

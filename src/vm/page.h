@@ -22,7 +22,7 @@ struct swap_data
 
 struct disk_data
 {
-
+  struct file *file;
 };
 
 struct zero_data
@@ -32,7 +32,7 @@ struct zero_data
 
 struct page
 {
-  const void *addr;                 /* Virtual address */
+  const void *addr;           /* Virtual address */
   struct hash_elem elem;      /* Hash table element */
 
   enum

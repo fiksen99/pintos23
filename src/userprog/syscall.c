@@ -441,23 +441,6 @@ mmap (int fd, void *addr)
   if (filesize == 0)
     return -1; // Fails
   
-  lock_acquire (&file_lock);
-  struct file *file_opened = file_reopen (file);
-  lock_release (&file_lock);
-
-  /*TODO: move this to page_fault and do this there. 
-  
-  off_t mod = filesize % (off_t) PGSIZE;
-  if (mod != 0)
-  {
-    off_t div = filesize / (off_t) PGSIZE;
-    file_write_at (file_opened, addr, mod, (off_t) (PGSIZE * div)); 
-     TODO: quite sure this is wrong. need to set excess bytes to 0 when the 
-       page is faulted in from the file system. discard them when the page is 
-       written back to the disk
-  }
-  */
-  
   size_t pages = filesize / PGSIZE + (filesize % PGSIZE == 0 ? 0 : 1);
 
   unsigned int i;

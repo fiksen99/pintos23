@@ -155,7 +155,7 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
-  valid = 0 < fault_addr && fault_addr < PHYS_BASE; 
+//  valid = 0 < fault_addr && fault_addr < PHYS_BASE; 
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
@@ -166,13 +166,14 @@ page_fault (struct intr_frame *f)
           write ? "writing" : "reading",
           user ? "user" : "kernel");
   kill (f);*/
-  if (!valid)
-    thread_exit();
-  else if (not_present && user)
+//  if (!valid)
+//    thread_exit();
+ if (not_present && user)
   {
     //possibly need to round up not down
     printf("not present and user\n");
     struct thread *curr = thread_current();
+    print_hash_table (&curr->supp_page_table);
     struct page *page = page_lookup (&curr->supp_page_table, pg_round_up (fault_addr));
     printf("looked up page\n");
     if (page == NULL)

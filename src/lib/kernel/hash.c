@@ -8,6 +8,8 @@
 #include "hash.h"
 #include "../debug.h"
 #include "threads/malloc.h"
+#include "vm/page.h"
+#include "threads/vaddr.h"
 
 #define list_elem_to_hash_elem(LIST_ELEM)                       \
         list_entry(LIST_ELEM, struct hash_elem, list_elem)
@@ -428,3 +430,16 @@ remove_elem (struct hash *h, struct hash_elem *e)
   list_remove (&e->list_elem);
 }
 
+/* Prints all elements of hash table */
+void
+print_elem (struct hash_elem *elem, void *aux UNUSED)
+{
+  struct page *pg = hash_entry (elem, struct page, elem);
+  printf ("%p\n", vtop (pg->addr));
+}
+
+void
+print_hash_table (struct hash *table)
+{
+  hash_apply (table, print_elem);
+}

@@ -41,7 +41,7 @@ process_execute (const char *command)
   char **arguments = frame_get_page (0);
   if (arguments == 0)
   {
-    palloc_free_page (command_copy);
+    frame_free_page (command_copy);
     return TID_ERROR;
   }
 

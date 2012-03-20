@@ -23,7 +23,7 @@ spt_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
 }
 
 struct page *
-page_lookup (struct hash * spt, const void *address)
+page_lookup (struct hash *spt, const void *address)
 {
   struct page p = {.addr = address};
   struct hash_elem *e;

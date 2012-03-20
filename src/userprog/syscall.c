@@ -14,6 +14,7 @@
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include "vm/frame.h"
+#include "vm/page.h"
 
 static void syscall_handler (struct intr_frame *);
 static void execute_halt (void);
@@ -77,9 +78,7 @@ syscall_handler (struct intr_frame *f)
       result = execute_exec ((char *) *arg);
     }
     else if (syscall == SYS_WAIT)
-    {
       result = execute_wait ((tid_t) *arg);
-    }
     else if (syscall == SYS_REMOVE)
     {
 	    check_valid_access (*arg);
@@ -91,21 +90,13 @@ syscall_handler (struct intr_frame *f)
       result = execute_open ((char *) *arg);
     }
     else if (syscall == SYS_FILESIZE)
-    {
       result = execute_filesize ((int) *arg);
-    }
     else if (syscall == SYS_TELL)
-    {
       result = execute_tell((int) *arg);
-    }
     else if (syscall == SYS_CLOSE)
-    {
       result = execute_close ((int) *arg);
-    }
     else
-    {
       result = execute_munmap ((mapid_t) *arg);
-    }
   }
   else if (syscall == SYS_CREATE || syscall == SYS_SEEK) /* TWO arguments */
   {
@@ -117,13 +108,9 @@ syscall_handler (struct intr_frame *f)
       result = execute_create ((char *) *arg1, *arg2);
     }
     else if (syscall == SYS_SEEK)
-    {
       result = execute_seek ((int) *arg1, *arg2);
-    }
     else
-    {
       result = execute_mmap ((int) *arg1, (void *) *arg2); 
-    }
   }
   else if ( syscall == SYS_READ || syscall == SYS_WRITE ) /* THREE arguments */
   {
@@ -445,7 +432,9 @@ add calls to syscall handler
 
 */
 
-/* If successful, this function returns a mapping ID that uniquely identifies 
+/* Maps the file open as fd into the process's virtual address space. The entire
+   file is mapped into consecutive virtual pages starting at addr.
+   If successful, this function returns a mapping ID that uniquely identifies 
    the mapping within the process. For a unique mapping ID, we have chosen the 
    address which is the parameter in the function */
 static mapid_t 
@@ -468,16 +457,22 @@ execute_mmap (int fd, void *addr)
   lock_release (&file_lock);
 
   off_t mod = filesize % (off_t) PGSIZE;
+  /*TODO: move this to page_fault and do this there. 
+
   if (mod != 0)
   {
     off_t div = filesize / (off_t) PGSIZE;
     file_write_at (file_opened, addr, mod, (off_t) (PGSIZE * div)); 
-    // TODO: not sure if we use addr here or what..? ask ryan or adam ^
+     TODO: quite sure this is wrong. need to set excess bytes to 0 when the 
+       page is faulted in from the file system. discard them when the page is 
+       written back to the disk
   }
+  */
 
   mapid_t mapping_id = (mapid_t) addr;
   off_t b;
-
+  tid_t current_tid = thread_current ()->tid;
+  
   for (;filesize > 0; filesize -= b)
   {
     if (filesize < PGSIZE)
@@ -487,7 +482,9 @@ execute_mmap (int fd, void *addr)
 
     struct frame *f = get_free_frame();
     f->addr = addr;
-    f->owner_tid = thread_current ()->tid;
+    f->owner_tid = current_tid;
+
+    /* change page.data to mem_data and page_location to PG_MEM */
 
     addr += PGSIZE;    
   }
@@ -495,8 +492,25 @@ execute_mmap (int fd, void *addr)
 }
 
 static uint32_t
-execute_munmap (mapid_t mapping UNUSED)
+execute_munmap (mapid_t mapping)
 {
-
-//return 1 is successful, 0 otherwise
+  void *addr = (void *) mapping;
+  struct page *p = page_lookup (&thread_current ()->supp_page_table, addr);
+  if (p == NULL)
+    return 0;
+  struct file *f = p->data.disk.file;
+  if (f == NULL)
+    return 0;
+  lock_acquire (&file_lock);
+  off_t filesize = file_length (f);
+  lock_release (&file_lock);
+  off_t num_frames = filesize / (off_t) PGSIZE;
+  off_t i;
+  for (i = 0; i < num_frames; i++)
+  {
+    struct frame *frame = lookup_frame (addr);
+    hash_delete (&frame_table, &frame->elem);
+    addr += PGSIZE;
+  }
+  return 1;
 }

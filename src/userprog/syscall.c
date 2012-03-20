@@ -32,8 +32,8 @@ static uint32_t execute_close (int);
 static struct file * find_file_from_fd (int);
 static void check_valid_access ( const uint32_t addr );
 
-void munmap (mapid_t);
-mapid_t mmap (int, void *);
+static uint32_t execute_munmap (mapid_t);
+static mapid_t execute_mmap (int, void *);
 
 static struct list fd_list;
 static int new_fd = 2; //fd to be allocated.
@@ -98,9 +98,13 @@ syscall_handler (struct intr_frame *f)
     {
       result = execute_tell((int) *arg);
     }
-    else /* (syscall == SYS_CLOSE) */
+    else if (syscall == SYS_CLOSE)
     {
       result = execute_close ((int) *arg);
+    }
+    else
+    {
+      result = execute_munmap ((mapid_t) *arg);
     }
   }
   else if (syscall == SYS_CREATE || syscall == SYS_SEEK) /* TWO arguments */
@@ -118,7 +122,7 @@ syscall_handler (struct intr_frame *f)
     }
     else
     {
-      result = mmap ((int) *arg1, (void *) *arg2); 
+      result = execute_mmap ((int) *arg1, (void *) *arg2); 
     }
   }
   else if ( syscall == SYS_READ || syscall == SYS_WRITE ) /* THREE arguments */
@@ -440,29 +444,35 @@ add calls to syscall handler
 
 
 */
+
 /* If successful, this function returns a mapping ID that uniquely identifies 
    the mapping within the process. For a unique mapping ID, we have chosen the 
    address which is the parameter in the function */
-mapid_t 
-mmap (int fd, void *addr)
+static mapid_t 
+execute_mmap (int fd, void *addr)
 {
   struct file *file = find_file_from_fd (fd);
-  if (fd < 2 || (int) addr == 0 || file == NULL)
+  if (fd == 0 || fd == 1 || (int) addr == 0 || file == NULL)
     return -1; // Fails
 
+  lock_acquire (&file_lock);
   off_t filesize = file_length (file);
+  lock_release (&file_lock);
+  
   if (filesize == 0)
     return -1; // Fails
-
+  
+  lock_acquire (&file_lock);
   struct file *file_opened = file_reopen (file);
   filesize = file_length (file_opened);
+  lock_release (&file_lock);
 
   off_t mod = filesize % (off_t) PGSIZE;
   if (mod != 0)
   {
     off_t div = filesize / (off_t) PGSIZE;
     file_write_at (file_opened, addr, mod, (off_t) (PGSIZE * div)); 
-    // TODO: not sure if we use addr here or what..? ^
+    // TODO: not sure if we use addr here or what..? ask ryan or adam ^
   }
 
   mapid_t mapping_id = (mapid_t) addr;
@@ -484,8 +494,9 @@ mmap (int fd, void *addr)
   return mapping_id;
 }
 
-void
-munmap (mapid_t mapping UNUSED)
+static uint32_t
+execute_munmap (mapid_t mapping UNUSED)
 {
 
+//return 1 is successful, 0 otherwise
 }

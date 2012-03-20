@@ -33,8 +33,8 @@ static uint32_t execute_close (int);
 static struct file * find_file_from_fd (int);
 static void check_valid_access ( const uint32_t addr );
 
-static uint32_t execute_munmap (mapid_t);
-static mapid_t execute_mmap (int, void *);
+static uint32_t munmap (mapid_t);
+static mapid_t mmap (int, void *);
 
 static struct list fd_list;
 static int new_fd = 2; //fd to be allocated.
@@ -96,7 +96,7 @@ syscall_handler (struct intr_frame *f)
     else if (syscall == SYS_CLOSE)
       result = execute_close ((int) *arg);
     else
-      result = execute_munmap ((mapid_t) *arg);
+      result = munmap ((mapid_t) *arg);
   }
   else if (syscall == SYS_CREATE || syscall == SYS_SEEK) /* TWO arguments */
   {
@@ -110,7 +110,7 @@ syscall_handler (struct intr_frame *f)
     else if (syscall == SYS_SEEK)
       result = execute_seek ((int) *arg1, *arg2);
     else
-      result = execute_mmap ((int) *arg1, (void *) *arg2); 
+      result = mmap ((int) *arg1, (void *) *arg2); 
   }
   else if ( syscall == SYS_READ || syscall == SYS_WRITE ) /* THREE arguments */
   {
@@ -422,23 +422,13 @@ close_thread_fds (void)
   }
 }
 
-
-/* Task 3 Implementation */
-
-/*
-TODO:
-add calls to syscall handler
-
-
-*/
-
 /* Maps the file open as fd into the process's virtual address space. The entire
    file is mapped into consecutive virtual pages starting at addr.
    If successful, this function returns a mapping ID that uniquely identifies 
    the mapping within the process. For a unique mapping ID, we have chosen the 
    address which is the parameter in the function */
 static mapid_t 
-execute_mmap (int fd, void *addr)
+mmap (int fd, void *addr)
 {
   struct file *file = find_file_from_fd (fd);
   if (fd == 0 || fd == 1 || (int) addr == 0 || file == NULL)
@@ -456,9 +446,10 @@ execute_mmap (int fd, void *addr)
   filesize = file_length (file_opened);
   lock_release (&file_lock);
 
-  off_t mod = filesize % (off_t) PGSIZE;
+  
   /*TODO: move this to page_fault and do this there. 
-
+  
+  off_t mod = filesize % (off_t) PGSIZE;
   if (mod != 0)
   {
     off_t div = filesize / (off_t) PGSIZE;
@@ -473,7 +464,7 @@ execute_mmap (int fd, void *addr)
   off_t b;
   tid_t current_tid = thread_current ()->tid;
   
-  for (;filesize > 0; filesize -= b)
+  for (; filesize > 0; filesize -= b)
   {
     if (filesize < PGSIZE)
       b = filesize;
@@ -491,26 +482,36 @@ execute_mmap (int fd, void *addr)
   return mapping_id;
 }
 
+/* Unmaps the mapping designated by 'mapping', which must be a mapping ID 
+   returned by a previous call to mmap by the same process that has not yet been 
+   unmapped.*/
 static uint32_t
-execute_munmap (mapid_t mapping)
+munmap (mapid_t mapping)
 {
   void *addr = (void *) mapping;
   struct page *p = page_lookup (&thread_current ()->supp_page_table, addr);
+
   if (p == NULL)
     return 0;
+
   struct file *f = p->data.disk.file;
+  
   if (f == NULL)
     return 0;
+
   lock_acquire (&file_lock);
   off_t filesize = file_length (f);
   lock_release (&file_lock);
+
   off_t num_frames = filesize / (off_t) PGSIZE;
   off_t i;
+
   for (i = 0; i < num_frames; i++)
   {
     struct frame *frame = lookup_frame (addr);
     hash_delete (&frame_table, &frame->elem);
     addr += PGSIZE;
   }
+
   return 1;
 }

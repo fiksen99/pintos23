@@ -430,11 +430,12 @@ close_thread_fds (void)
 static mapid_t 
 mmap (int fd, void *addr)
 {
-  struct file *file = find_file_from_fd (fd);
+  struct file *oldfile = find_file_from_fd (fd);
   if (fd == 0 || fd == 1 || (int) addr == 0 || file == NULL)
     return -1; // Fails
 
   lock_acquire (&file_lock);
+  
   off_t filesize = file_length (file);
   lock_release (&file_lock);
   

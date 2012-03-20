@@ -443,10 +443,8 @@ mmap (int fd, void *addr)
   
   lock_acquire (&file_lock);
   struct file *file_opened = file_reopen (file);
-  filesize = file_length (file_opened);
   lock_release (&file_lock);
 
-  
   /*TODO: move this to page_fault and do this there. 
   
   off_t mod = filesize % (off_t) PGSIZE;
@@ -459,27 +457,24 @@ mmap (int fd, void *addr)
        written back to the disk
   }
   */
-
-  mapid_t mapping_id = (mapid_t) addr;
-  off_t b;
-  tid_t current_tid = thread_current ()->tid;
   
-  for (; filesize > 0; filesize -= b)
+  size_t pages = filesize / PGSIZE + (filesize % PGSIZE == 0 ? 0 : 1);
+  palloc_get_multiple (0, pages); // might need to send pal_user
+  // need to install
+
+  unsigned int i;
+  off_t offset;
+  for (i = 0, offset = 0; i < pages; i++, offset += PGSIZE)
   {
-    if (filesize < PGSIZE)
-      b = filesize;
-    else
-      b = (off_t) PGSIZE;
-
-    struct frame *f = get_free_frame();
-    f->addr = addr;
-    f->owner_tid = current_tid;
-
-    /* change page.data to mem_data and page_location to PG_MEM */
-
-    addr += PGSIZE;    
+    struct page *p = malloc (sizeof (struct page));
+    p->addr = addr + offset;
+    p->page_location = PG_DISK;
+    p->data.disk.file = file;
+    p->data.disk.offset = offset;
+    hash_insert (&thread_current ()->supp_page_table, &p->elem);
   }
-  return mapping_id;
+
+  return (mapid_t) addr;
 }
 
 /* Unmaps the mapping designated by 'mapping', which must be a mapping ID 

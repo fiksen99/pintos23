@@ -23,6 +23,7 @@ struct swap_data
 struct disk_data
 {
   struct file *file;
+  off_t offset;                 /* offset from beginning of file */
 };
 
 struct zero_data
@@ -34,7 +35,6 @@ struct page
 {
   void *addr;           /* Virtual address */
   struct hash_elem elem;      /* Hash table element */
-  struct file *file;          /* file associated with page */
 
   enum
   {

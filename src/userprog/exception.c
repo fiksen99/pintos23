@@ -133,6 +133,7 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
+  bool valid;        /* True: fault_addr is a valid memory reference */
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -154,6 +155,7 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
+  valid = 0 < fault_addr && fault_addr < PHYS_BASE; 
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
@@ -164,17 +166,20 @@ page_fault (struct intr_frame *f)
           write ? "writing" : "reading",
           user ? "user" : "kernel");
   kill (f);*/
-  if (not_present)
+  if (!valid)
+    thread_exit();
+  else if (not_present && user)
   {
     //possibly need to round up not down
+    printf("not present and user\n");
     struct thread *curr = thread_current();
-    struct page *page = page_lookup (&curr->supp_page_table, pg_round_down (fault_addr));
-    printf("looked up page");
+    struct page *page = page_lookup (&curr->supp_page_table, pg_round_up (fault_addr));
+    printf("looked up page\n");
     if (page == NULL)
     {
       //page doesnt exist
       /*TODO: modify process_exit to free all new resources */
-      process_exit ();
+      thread_exit ();
     } else
     {
       //page exists, needs to be loaded into frame table

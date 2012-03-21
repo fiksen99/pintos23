@@ -33,7 +33,6 @@ static uint32_t execute_close (int);
 static uint32_t execute_munmap (mapid_t);
 static mapid_t execute_mmap (int, void *);
 static struct file *find_file_from_fd (int);
-static struct file *find_file_from_mapid (mapid_t);
 struct mapid_elems *find_struct_from_mapid (mapid_t);
 static void check_valid_access (const uint32_t addr);
 
@@ -431,12 +430,12 @@ execute_munmap (mapid_t mapid)
 {
   // look up in mapid list
   // if NULL, return failure
-  struct file *f = find_file_from_mapid (mapid);
+  struct mapid_elems *mapid_elem = find_struct_from_mapid (mapid);
+  struct file *f = mapid_elem->file;
   if (f == NULL)
     return 0;
 
   // remove and free memory for mapid_elems
-  struct mapid_elems *mapid_elem = find_struct_from_mapid (mapid);
   list_remove (&mapid_elem->elem);
   free (&mapid_elem->elem);  
 
@@ -474,25 +473,6 @@ find_file_from_fd (int fd)
     struct fd_elems *fd_elem = list_entry(e, struct fd_elems, elem);
     if (fd_elem->fd == fd)
       return fd_elem->file;
-  }
-  return NULL;
-}
-
-static struct file *
-find_file_from_mapid (mapid_t mapid)
-{
-  if (list_empty (&mapid_list))
-  {
-    return NULL;
-  }
-  struct list_elem *e;
-  for (e = list_begin (&mapid_list); e != list_end (&mapid_list); e = list_next (e))
-  {
-    struct mapid_elems *mapid_elem = list_entry(e, struct mapid_elems, elem);
-    if (mapid_elem->mapid == mapid)
-    {
-      return mapid_elem->file;
-    }
   }
   return NULL;
 }

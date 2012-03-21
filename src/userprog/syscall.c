@@ -114,7 +114,10 @@ syscall_handler (struct intr_frame *f)
     else if (syscall == SYS_SEEK)
       result = execute_seek ((int) *arg1, *arg2);
     else
-      result = execute_mmap ((int) *arg1, (void *) *arg2); 
+    {
+      check_valid_access (*arg2);
+      result = execute_mmap ((int) *arg1, (void *) *arg2);
+    }
   }
   else if ( syscall == SYS_READ || syscall == SYS_WRITE ) /* THREE arguments */
   {
@@ -440,15 +443,16 @@ execute_munmap (mapid_t mapid)
   free (&mapid_elem->elem);  
 
   // go through all pages, write their data to file iff they have been changed
-  lock_acquire (&file_lock);
+  /*lock_acquire (&file_lock);
   off_t filesize = file_length (f);
-  lock_release (&file_lock);
+  lock_release (&file_lock); */
 
-  size_t pages = filesize / PGSIZE;
+  /* size_t pages = filesize / PGSIZE;
   if (filesize % PGSIZE != 0)
-    ++pages;
+    ++pages; */
 
-  palloc_free_multiple (mapid_elem->addr, pages); //kills the pages? 
+  pagedir_destroy (thread_current ()->pagedir);
+  //palloc_free_multiple (mapid_elem->addr, pages); //kills the pages? 
 
   // close file
   lock_acquire (&file_lock);
@@ -458,7 +462,7 @@ execute_munmap (mapid_t mapid)
   return 1;
 }
 
-// TODO implicitly unmap all mappings on process exit
+// TODO implicitly unmap all mappings on process exit - do this in process_exit
 
 /* functions to correct help system call handling */
 

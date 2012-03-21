@@ -451,13 +451,13 @@ close_thread_fds (void)
 static mapid_t 
 execute_mmap (int fd, void *addr)
 {
-  if (fd == 0 || fd == 1 || addr == 0 || addr % PGSIZE != 0)
+  if (fd == 0 || fd == 1 || addr == 0 || (int) addr % PGSIZE != 0)
   {
     return MAP_FAILED;
   }
 
   struct file *oldfile = find_file_from_fd (fd);
-  if (file == NULL)
+  if (oldfile == NULL)
     return MAP_FAILED;
 
   lock_acquire (&file_lock);
@@ -466,7 +466,7 @@ execute_mmap (int fd, void *addr)
   lock_release (&file_lock);
   
   if (filesize == 0)
-    return MAP_FAILED
+    return MAP_FAILED;
 
   // must also fail if the range of pages mapped overlaps any existing pages
 

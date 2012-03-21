@@ -135,6 +135,7 @@ page_fault (struct intr_frame *f)
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
   bool valid;        /* True: fault_addr is a valid memory reference */
+  intr_disable ();
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -144,6 +145,9 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
+  printf ("fault address: %p, EIP: %p\n", fault_addr, f->eip);
+    struct thread *curr = thread_current();
+    struct page *page = page_lookup (&curr->supp_page_table, pg_round_down (fault_addr));
 
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
@@ -169,11 +173,8 @@ page_fault (struct intr_frame *f)
   kill (f);*/
 //  if (!valid)
 //    thread_exit();
- if (not_present && user)
-  {
     // possibly need to round up not down
-    struct thread *curr = thread_current();
-    struct page *page = page_lookup (&curr->supp_page_table, pg_round_down (fault_addr));
+    printf ("page addr: %p\n", page);
     if (page == NULL)
     {
       // page doesnt exist
@@ -183,7 +184,19 @@ page_fault (struct intr_frame *f)
     else
     {
       //page exists, needs to be loaded into frame table
-      if (page->page_location == PG_SWAP)
+      printf("page_location: %d\n", page->page_location);
+      if (page->page_location == PG_ZERO)
+      {
+        struct frame *frame = get_free_frame ();
+        frame->addr = page->addr;
+        frame->owner_tid = curr->tid;
+        memset (frame->addr, 0, PGSIZE);
+        page->page_location = PG_MEM;
+        pagedir_set_page (curr->pagedir, fault_addr, page->addr, page->data.zero.writable);
+        return;
+        
+      }
+      else if (page->page_location == PG_SWAP)
       {
         // gets page from swap table and moves it to a free frame
         // race conditions?
@@ -194,21 +207,20 @@ page_fault (struct intr_frame *f)
       {
         // This is an interrupt context, it thread_current() (also curr) not the kernel thread?
         // When reading from the file, need to store the file it was loaded from because if it ever needs to go back into a file then it should use the old   
-        struct frame *f = get_free_frame ();
-        f->addr = page->addr;
-        f->owner_tid = curr->tid;
+        struct frame *frame = get_free_frame ();
+        frame->addr = page->addr;
+        frame->owner_tid = curr->tid;
         lock_acquire (&file_lock);
         off_t read_bytes = file_read_at (page->data.disk.file, f, PGSIZE, page->data.disk.offset);
         lock_release (&file_lock);
         off_t zeroes = PGSIZE - read_bytes;
         if (zeroes > 0)
         {
-          memset (f->addr + read_bytes, 0, zeroes);
+          memset (frame->addr + read_bytes, 0, zeroes);
         }
-        pagedir_set_page (curr->pagedir, fault_addr, page->addr, true);
+        page->page_location = PG_MEM;
+        pagedir_set_page (curr->pagedir, page->addr, fault_addr, page->data.disk.writable);
         return;
       }
     }
-  }
-  kill (f);
 }

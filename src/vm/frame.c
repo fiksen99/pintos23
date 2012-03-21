@@ -30,7 +30,9 @@ frame_get_page (enum palloc_flags flags)
 {
   void *kpage = palloc_get_page (flags);
   if (kpage == NULL)
+  {
     return NULL;
+  }
   // Always in mem after a succesful palloc
   struct page *supp_page = malloc (sizeof (struct page));
   supp_page->addr = kpage;

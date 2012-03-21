@@ -24,11 +24,12 @@ struct disk_data
 {
   struct file *file;
   off_t offset;                 /* offset from beginning of file */
+  bool writable;                /* file is writable or not */
 };
 
 struct zero_data
 {
-
+  bool writable;                /* file is writable or not */
 };
 
 struct page

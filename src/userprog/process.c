@@ -486,6 +486,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
   printf("begins to load segment\n");
   struct thread *curr = thread_current ();
+  bool is_zero_page;
 
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
@@ -497,27 +498,25 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. Use palloc as want lazy copying to memory*/
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
-        return false;
-
       struct page *supp_page = malloc (sizeof (struct page));
-      supp_page->addr = kpage;
-      supp_page->page_location = PG_DISK;
-      supp_page->data.disk.file = file;
+      supp_page->addr = upage;
+      if (page_read_bytes == 0)
+      {
+        supp_page->page_location = PG_ZERO;
+        supp_page->data.zero.writable = writable;
+      } else
+      {
+        supp_page->page_location = PG_DISK;
+        supp_page->data.disk.file = file;
+        supp_page->data.disk.offset = ofs;
+        supp_page->data.disk.writable = writable;
+      }
       if (curr->supp_page_table.hash == NULL)
       {
   printf( "thread name: %s\n",curr->name);
         spt_init (&curr->supp_page_table);
       }
       hash_insert (&curr->supp_page_table, &supp_page->elem);
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
 
       /* Advance. */
       read_bytes -= page_read_bytes;

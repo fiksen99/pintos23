@@ -166,16 +166,16 @@ page_fault (struct intr_frame *f)
   kill (f);*/
   if (not_present)
   {
-    //possibly need to round up not down
+    // possibly need to round up not down
     struct thread *curr = thread_current();
     struct page *page = page_lookup (&curr->supp_page_table, pg_round_down (fault_addr));
-    printf("looked up page");
     if (page == NULL)
     {
-      //page doesnt exist
-      /*TODO: modify process_exit to free all new resources */
+      // page doesnt exist
+      /* TODO: modify process_exit to free all new resources */
       process_exit ();
-    } else
+    }
+    else
     {
       //page exists, needs to be loaded into frame table
       if (page->page_location == PG_SWAP)
@@ -184,16 +184,23 @@ page_fault (struct intr_frame *f)
         // race conditions?
         struct block *block = block_get_role(BLOCK_SWAP);
         //TODO all of this
-      } else if (page->page_location == PG_DISK)
+      }
+      else if (page->page_location == PG_DISK)
       {
-        printf("on disk\n");
-        struct frame *frame = get_free_frame();
-        
-        int read_bytes = file_read (page->data.disk.file, page->addr, PGSIZE);
-        memset (page->addr + read_bytes, 0, PGSIZE-read_bytes);
-        frame->addr = page->addr;
-        pagedir_set_page (thread_current()->pagedir, fault_addr, page->addr, true );
-        printf("gets correctly from filesys");
+        // This is an interrupt context, it thread_current() (also curr) not the kernel thread?
+        // When reading from the file, need to store the file it was loaded from because if it ever needs to go back into a file then it should use the old   
+        struct frame *f = get_free_frame ();
+        f->addr = page->addr;
+        f->owner_tid = curr->tid;
+        lock_acquire (&file_lock);
+        off_t read_bytes = file_read_at (page->data.disk.file, f, PGSIZE, page->data.disk.offset);
+        lock_release (&file_lock);
+        off_t zeroes = PGSIZE - read_bytes;
+        if (zeroes > 0)
+        {
+          memset (f->addr + read_bytes, 0, zeroes);
+        }
+        pagedir_set_page (curr->pagedir, fault_addr, page->addr, true);
         return;
       }
     }

@@ -30,22 +30,26 @@ static uint32_t execute_read (int, void *, unsigned) UNUSED;
 static uint32_t execute_seek (int, unsigned);
 static uint32_t execute_tell (int);
 static uint32_t execute_close (int);
-static struct file * find_file_from_fd (int);
-static void check_valid_access ( const uint32_t addr );
-
-static uint32_t munmap (mapid_t);
-static mapid_t mmap (int, void *);
+static uint32_t execute_munmap (mapid_t);
+static mapid_t execute_mmap (int, void *);
+static struct file *find_file_from_fd (int);
+static struct file *find_file_from_mapid (mapid_t);
+static void check_valid_access (const uint32_t addr);
 
 static struct list fd_list;
 static int new_fd = 2; //fd to be allocated.
 
-static struct lock file_lock;
+struct list mapid_list;
+static mapid_t new_mapid = 0;
+
+struct lock file_lock;
 
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   list_init (&fd_list);
+  list_init (&mapid_list);
   lock_init (&file_lock);
 }
 
@@ -96,7 +100,7 @@ syscall_handler (struct intr_frame *f)
     else if (syscall == SYS_CLOSE)
       result = execute_close ((int) *arg);
     else
-      result = munmap ((mapid_t) *arg);
+      result = execute_munmap ((mapid_t) *arg);
   }
   else if (syscall == SYS_CREATE || syscall == SYS_SEEK) /* TWO arguments */
   {
@@ -110,7 +114,7 @@ syscall_handler (struct intr_frame *f)
     else if (syscall == SYS_SEEK)
       result = execute_seek ((int) *arg1, *arg2);
     else
-      result = mmap ((int) *arg1, (void *) *arg2); 
+      result = execute_mmap ((int) *arg1, (void *) *arg2); 
   }
   else if ( syscall == SYS_READ || syscall == SYS_WRITE ) /* THREE arguments */
   {
@@ -385,6 +389,24 @@ find_file_from_fd (int fd)
   return NULL;
 }
 
+static struct file *
+find_file_from_mapid (mapid_t mapid)
+{
+  if (list_empty (&mapid_list))
+  {
+    return NULL;
+  }
+  struct list_elem *e;
+  for (e = list_begin (&mapid_list); e != list_end (&mapid_list); e = list_next (e))
+  {
+    struct mapid_elems *mapid_elem = list_entry(e, struct mapid_elems, elem);
+    if (mapid_elem->mapid == mapid)
+    {
+      return mapid_elem->file;
+    }
+  }
+  return NULL;
+}
 
 /*checks user memory access is valid*/
 static void
@@ -425,22 +447,33 @@ close_thread_fds (void)
 /* Maps the file open as fd into the process's virtual address space. The entire
    file is mapped into consecutive virtual pages starting at addr.
    If successful, this function returns a mapping ID that uniquely identifies 
-   the mapping within the process. For a unique mapping ID, we have chosen the 
-   address which is the parameter in the function */
+   the mapping within the process. */
 static mapid_t 
-mmap (int fd, void *addr)
+execute_mmap (int fd, void *addr)
 {
+  if (fd == 0 || fd == 1 || addr == 0 || addr % PGSIZE != 0)
+  {
+    return MAP_FAILED;
+  }
+
   struct file *oldfile = find_file_from_fd (fd);
-  if (fd == 0 || fd == 1 || (int) addr == 0 || file == NULL)
-    return -1; // Fails
+  if (file == NULL)
+    return MAP_FAILED;
 
   lock_acquire (&file_lock);
-  
-  off_t filesize = file_length (file);
+  off_t filesize = file_length (oldfile);
+  struct file *file = file_reopen (oldfile);
   lock_release (&file_lock);
   
   if (filesize == 0)
-    return -1; // Fails
+    return MAP_FAILED
+
+  // must also fail if the range of pages mapped overlaps any existing pages
+
+  struct mapid_elems *new_entry = malloc (sizeof (struct mapid_elems));
+  new_entry->mapid = new_mapid++;
+  new_entry->file = file;
+  list_push_back (&mapid_list, &new_entry->elem);
   
   size_t pages = filesize / PGSIZE + (filesize % PGSIZE == 0 ? 0 : 1);
 
@@ -456,39 +489,21 @@ mmap (int fd, void *addr)
     hash_insert (&thread_current ()->supp_page_table, &p->elem);
   }
 
-  return (mapid_t) addr;
+  return new_entry->mapid;
 }
 
 /* Unmaps the mapping designated by 'mapping', which must be a mapping ID 
    returned by a previous call to mmap by the same process that has not yet been 
    unmapped.*/
 static uint32_t
-munmap (mapid_t mapping)
+execute_munmap (mapid_t mapid)
 {
-  void *addr = (void *) mapping;
-  struct page *p = page_lookup (&thread_current ()->supp_page_table, addr);
-
-  if (p == NULL)
-    return 0;
-
-  struct file *f = p->data.disk.file;
-  
-  if (f == NULL)
-    return 0;
-
-  lock_acquire (&file_lock);
-  off_t filesize = file_length (f);
-  lock_release (&file_lock);
-
-  off_t num_frames = filesize / (off_t) PGSIZE;
-  off_t i;
-
-  for (i = 0; i < num_frames; i++)
-  {
-    struct frame *frame = lookup_frame (addr);
-    hash_delete (&frame_table, &frame->elem);
-    addr += PGSIZE;
-  }
-
+  // look up in mapid list
+  // if NULL, return failure
+  // remove and free memory for mapid_elems
+  // go through all pages, write their data to file iff they have been changed
+  // close file
   return 1;
 }
+
+// TODO implicitly unmap all mappings on process exit

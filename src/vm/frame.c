@@ -38,7 +38,11 @@ frame_get_page (enum palloc_flags flags)
   struct frame *frame = get_free_frame ();
   frame->addr = kpage;
   supp_page->data.mem.frame = frame;
-//  hash_insert (&thread_current()->supp_page_table, &supp_page->elem);
+  if (thread_current()->supp_page_table.hash == NULL)
+  {
+    spt_init(&thread_current()->supp_page_table);
+  }
+  hash_insert (&thread_current()->supp_page_table, &supp_page->elem);
   return kpage;
 }
 

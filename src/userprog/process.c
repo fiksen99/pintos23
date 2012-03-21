@@ -100,7 +100,6 @@ start_process (void *arguments_)
     sema_up (&curr->parent->exec_sema);
     thread_exit ();
   }
-  spt_init (&curr->supp_page_table);
   
   /* Allow the parent process to continue now it has loaded*/
 
@@ -502,18 +501,16 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       if (kpage == NULL)
         return false;
 
-/*      struct page *supp_page = malloc (sizeof (struct page));
+      struct page *supp_page = malloc (sizeof (struct page));
       supp_page->addr = kpage;
       supp_page->page_location = PG_DISK;
       supp_page->data.disk.file = file;
-      hash_insert (&curr->supp_page_table, &supp_page->elem);*/
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
+      if (curr->supp_page_table.hash == NULL)
+      {
+  printf( "thread name: %s\n",curr->name);
+        spt_init (&curr->supp_page_table);
+      }
+      hash_insert (&curr->supp_page_table, &supp_page->elem);
 
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable)) 

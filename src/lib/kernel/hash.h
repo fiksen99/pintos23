@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include "list.h"
 
 /* Hash element. */
@@ -99,5 +100,8 @@ bool hash_empty (struct hash *);
 unsigned hash_bytes (const void *, size_t);
 unsigned hash_string (const char *);
 unsigned hash_int (int);
+
+void print_elem (struct hash_elem *, void *);
+void print_hash_table (struct hash *);
 
 #endif /* lib/kernel/hash.h */

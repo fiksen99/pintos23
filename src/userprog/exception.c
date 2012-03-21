@@ -193,7 +193,8 @@ page_fault (struct intr_frame *f)
       else if (page->page_location == PG_DISK)
       {
         // This is an interrupt context, it thread_current() (also curr) not the kernel thread?
-        // When reading from the file, need to store the file it was loaded from because if it ever needs to go back into a file then it should use the old   
+        // When reading from the file, need to store the file it was loaded from 
+        // because if it ever needs to go back into a file then it should use the old
         struct frame *f = get_free_frame ();
         f->addr = page->addr;
         f->owner_tid = curr->tid;

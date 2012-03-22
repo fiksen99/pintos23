@@ -386,10 +386,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-      if( i > 0 )
-      {
-        file_page += PGSIZE;
-      }
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
@@ -493,8 +489,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   {
     spt_init (&curr->supp_page_table);
   }
-  printf( "ofs at function call: %d\n", ofs);
-  printf("read_bytes: %d, zero_bytes: %d\n", read_bytes, zero_bytes);
+  //printf( "ofs at function call: %d\n", ofs);
+  //printf("read_bytes: %d, zero_bytes: %d\n", read_bytes, zero_bytes);
   while (read_bytes > 0 || zero_bytes > 0) 
   {
     /* Calculate how to fill this page.
@@ -510,16 +506,15 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     if (page_read_bytes == 0)
     {
       supp_page->page_location = PG_ZERO;
-      supp_page->data.zero.writable = writable;
     } else
     {
       supp_page->page_location = PG_DISK;
       supp_page->data.disk.file = file;
       supp_page->data.disk.offset = ofs;
-      supp_page->data.disk.writable = writable;
     }
+    supp_page->writable = writable;
     hash_insert (&curr->supp_page_table, &supp_page->elem);
-    printf("storing upage: %p with offset: %d\n", upage, ofs);
+    //printf("storing upage: %p with offset: %d\n", upage, ofs);
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
@@ -542,7 +537,7 @@ setup_stack (void **esp)
 
   struct page *supp_page = malloc (sizeof (struct page));
   supp_page->addr = (void *)PHYS_BASE - PGSIZE;
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  kpage = frame_get_page (PAL_USER | PAL_ZERO);
   supp_page->page_location = PG_MEM;
   supp_page->data.mem.frame = (void*)kpage;
   if (kpage != NULL) 
@@ -551,7 +546,7 @@ setup_stack (void **esp)
       if (success)
         *esp = PHYS_BASE;
       else
-        palloc_free_page (kpage);
+        frame_free_page (kpage);
     }
     struct thread *curr = thread_current();
     hash_insert (&curr->supp_page_table, &supp_page->elem);
@@ -570,8 +565,9 @@ setup_stack (void **esp)
 
 /* Cheks is an access is probably a stack access */
 bool
-is_stack_access (void *addr, struct intr_frame *f)
+is_stack_access (void *addr UNUSED, struct intr_frame *f UNUSED)
 {
+  NOT_REACHED ();
   // (PUSHA command means the accesses could be up to 32 bytes below the stack pointer)
 }
 

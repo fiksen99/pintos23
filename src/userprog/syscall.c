@@ -31,7 +31,7 @@ static uint32_t execute_read (int, void *, unsigned) UNUSED;
 static uint32_t execute_seek (int, unsigned);
 static uint32_t execute_tell (int);
 static uint32_t execute_close (int);
-static uint32_t execute_munmap (mapid_t);
+static struct list_elem *execute_munmap (mapid_t);
 static mapid_t execute_mmap (int, void *);
 static struct file *find_file_from_fd (int);
 struct mapid_elems *find_struct_from_mapid (mapid_t);
@@ -69,7 +69,7 @@ syscall_handler (struct intr_frame *f)
   else if (syscall == SYS_EXIT || syscall == SYS_EXEC || syscall == SYS_WAIT
            || syscall == SYS_REMOVE || syscall == SYS_OPEN
            || syscall == SYS_FILESIZE || syscall == SYS_TELL
-           || syscall == SYS_CLOSE || syscall == SYS_MMAP) /* ONE argument */
+           || syscall == SYS_CLOSE || syscall == SYS_MUNMAP) /* ONE argument */
   {
     uint32_t *arg = stackptr + 1;
     if (syscall == SYS_EXIT)
@@ -101,9 +101,12 @@ syscall_handler (struct intr_frame *f)
     else if (syscall == SYS_CLOSE)
       result = execute_close ((int) *arg);
     else
-      result = execute_munmap ((mapid_t) *arg);
+    {
+//      printf("execute_munmap\n");
+      result = (execute_munmap ((mapid_t) *arg) == NULL) ? -1 : 1;
+    }
   }
-  else if (syscall == SYS_CREATE || syscall == SYS_SEEK) /* TWO arguments */
+  else if (syscall == SYS_CREATE || syscall == SYS_SEEK || syscall == SYS_MMAP) /* TWO arguments */
   {
     uint32_t *arg1 = stackptr + 1;
     unsigned *arg2 = stackptr + 2;
@@ -116,7 +119,8 @@ syscall_handler (struct intr_frame *f)
       result = execute_seek ((int) *arg1, *arg2);
     else
     {
-      check_valid_access (*arg2);
+      if (!is_user_vaddr((void*)*arg2))
+        thread_exit();
       result = execute_mmap ((int) *arg1, (void *) *arg2);
     }
   }
@@ -408,7 +412,7 @@ execute_mmap (int fd, void *addr)
   void *page_addr;
   for (i = 0, page_addr = addr; i < pages; i++, page_addr += PGSIZE)
   {
-    if (page_lookup (&t->supp_page_table, pg_round_down (page_addr)) != NULL)
+    if (page_lookup (&t->supp_page_table, page_addr) != NULL)
     {
       return MAP_FAILED;
     }
@@ -427,6 +431,7 @@ execute_mmap (int fd, void *addr)
     struct page *p = malloc (sizeof (struct page));
     p->addr = addr + offset;
     p->page_location = PG_DISK;
+    p->writable = true;
     p->data.disk.file = file;
     p->data.disk.offset = offset;
     hash_insert (&t->supp_page_table, &p->elem);
@@ -438,20 +443,25 @@ execute_mmap (int fd, void *addr)
 /* Unmaps the mapping designated by 'mapping', which must be a mapping ID 
    returned by a previous call to mmap by the same process that has not yet been 
    unmapped.*/
-static uint32_t
+static struct list_elem *
 execute_munmap (mapid_t mapid)
 {
-  // TODO: what if the file no longer exists
   struct mapid_elems *mapid_elem = find_struct_from_mapid (mapid);
+  if (mapid_elem == NULL)
+  {
+    return NULL;
+  }
+
   struct file *f = mapid_elem->file;
   if (f == NULL)
-    return -1;
+    return NULL;
+  // TODO: what if the file no longer exists
 
   void *addr = mapid_elem->addr;
   struct thread *t = thread_current ();
 
-  list_remove (&mapid_elem->elem);
-  free (&mapid_elem->elem);  
+  struct list_elem *ret = list_remove (&mapid_elem->elem);
+  free (mapid_elem);
 
   lock_acquire (&file_lock);
 
@@ -483,10 +493,12 @@ execute_munmap (mapid_t mapid)
       else
       {
         file_write_at (f, addr + offset, PGSIZE, offset);
-      }
-      frame_free_page (addr + offset);
+      }/*
+      struct frame *frame = lookup_frame (addr + offset);
+      hash_delete (&frame_table, &frame->elem);
+      free (frame);*/
+      pagedir_clear_page (t->pagedir, addr + offset);
     }
-    pagedir_clear_page (t->pagedir, addr + offset);
     hash_delete (&t->supp_page_table, &p->elem);
     free (p);
   }
@@ -495,7 +507,7 @@ execute_munmap (mapid_t mapid)
 
   lock_release (&file_lock);
 
-  return 1;
+  return ret;
 }
 
 /* functions to help system call handling */
@@ -519,14 +531,18 @@ struct mapid_elems *
 find_struct_from_mapid (mapid_t mapid)
 {
   if (list_empty (&mapid_list))
+  {
     return NULL;
+  }
 
   struct list_elem *e;
   for (e = list_begin (&mapid_list); e != list_end (&mapid_list); e = list_next (e))
   {
     struct mapid_elems *mapid_elem = list_entry(e, struct mapid_elems, elem);
     if (mapid_elem->mapid == mapid)
+    {
       return mapid_elem;
+    }
   }
   return NULL;
 }
@@ -571,12 +587,17 @@ void close_thread_mapids ()
 {
   tid_t tid = thread_current ()->tid;
   struct list_elem *e;
-  for (e = list_begin (&mapid_list); e != list_end (&mapid_list); e = list_next (e))
+  for (e = list_begin (&mapid_list); e != list_end (&mapid_list);)
   {
     struct mapid_elems *mapid_elem = list_entry (e, struct mapid_elems, elem);
+    //printf("mapid_elem being munmapped: %p\n", mapid_elem);
     if (mapid_elem->tid == tid)
     {
-      execute_munmap (mapid_elem->mapid);
+      e = execute_munmap (mapid_elem->mapid);
+    }
+    else
+    {
+      e = list_next (e);
     }
   }
 }

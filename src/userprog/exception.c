@@ -149,7 +149,6 @@ page_fault (struct intr_frame *f)
 
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
-  void *eip = f->eip;
   intr_enable ();
 
   /* Count page faults. */
@@ -166,13 +165,13 @@ page_fault (struct intr_frame *f)
 
   struct thread *curr = thread_current();
   void *fault_page = pg_round_down (fault_addr);
- // printf ("faulting address %p\naccessing page %p\n", fault_addr, fault_page);
+//  printf ("%p ", fault_addr);
   struct page *supp_page = page_lookup (&curr->supp_page_table, fault_page);
   if (supp_page == NULL)
   {
     // page doesnt exist
     /* TODO: modify process_exit to free all new resources */
-    printf ("user accessed page that doesnt exist\n");
+    //printf ("user accessed page that doesnt exist\n");
     thread_exit ();
   }
   else
@@ -180,10 +179,10 @@ page_fault (struct intr_frame *f)
     //page exists, needs to be loaded into frame table
     if (supp_page->page_location == PG_ZERO)
     {
-      void * kpage = palloc_get_page (PAL_USER|PAL_ZERO);
+      void * kpage = frame_get_page (PAL_USER|PAL_ZERO);
       supp_page->page_location = PG_MEM;
       lock_acquire (&curr->pagedir_lock);
-      pagedir_set_page (curr->pagedir, supp_page->addr, kpage, supp_page->data.zero.writable);
+      pagedir_set_page (curr->pagedir, supp_page->addr, kpage, supp_page->writable);
       lock_release (&curr->pagedir_lock);
       return;
       
@@ -192,25 +191,26 @@ page_fault (struct intr_frame *f)
     {
       // gets page from swap table and moves it to a free frame
       // race conditions?
-      struct block *block = block_get_role(BLOCK_SWAP);
+      //struct block *block = block_get_role(BLOCK_SWAP);
       //TODO all of this
     }
     else if (supp_page->page_location == PG_DISK)
     {
       // When reading from the file, need to store the file it was loaded from 
       // because if it ever needs to go back into a file then it should use the old   
-      void * kpage = palloc_get_page (PAL_USER);
+      void * kpage = frame_get_page (PAL_USER);
       lock_acquire (&file_lock);
       off_t read_bytes = file_read_at (supp_page->data.disk.file, kpage, PGSIZE,
         supp_page->data.disk.offset);
       lock_release (&file_lock);
       off_t zeroes = PGSIZE - read_bytes;
+      memset(kpage + read_bytes, 0, zeroes);
       supp_page->page_location = PG_MEM;
       lock_acquire (&curr->pagedir_lock);
       pagedir_set_page (curr->pagedir, supp_page->addr, kpage,
-        supp_page->data.disk.writable);
+        supp_page->writable);
       lock_release (&curr->pagedir_lock);
-//printf("offset: %d, %d\n\n", supp_page->data.disk.offset, *( (uint32_t *) kpage));
+      printf("*fault_addr: %x\n", *((uint32_t *)fault_addr));
       return;
     }
     // possibly reached if two threads page fault on the same page, one has already

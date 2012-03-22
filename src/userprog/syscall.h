@@ -26,10 +26,12 @@ struct mapid_elems
   mapid_t mapid;
   struct file *file;
   void *addr;
+  tid_t tid;
   struct list_elem elem;
 };
 
 void syscall_init (void);
 void close_thread_fds (void);
+void close_thread_mapids (void);
 
 #endif /* userprog/syscall.h */

@@ -413,7 +413,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   t->file = file;
   return success;
 }
-
+
 /* load() helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
@@ -544,6 +544,32 @@ setup_stack (void **esp)
     }
   return success;
 }
+
+// -------------------------------------------------------------------------- //
+
+// TODO: Stack growth
+
+// Add stack_size (in pages) to struct thread
+// - Initialise in init_thread() (or thread_init()) to 1
+
+// in page_fault, if no supp page exists and is_stack_access, call extend_stack
+// then need to page fault again to allocate the zero page
+
+/* Cheks is an access is probably a stack access */
+bool
+is_stack_access (void *addr, struct intr_frame *f)
+{
+  // (PUSHA command means the accesses could be up to 32 bytes below the stack pointer)
+}
+
+/* Extend the stack by 1 page */
+void
+extend_stack ()
+{
+  // Allocate lazily as PG_ZERO so the code isn't duplicated?
+}
+
+// -------------------------------------------------------------------------- //
 
 /* Adds a mapping from user virtual address UPAGE to kernel
    virtual address KPAGE to the page table.

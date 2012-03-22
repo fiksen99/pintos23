@@ -547,6 +547,25 @@ setup_stack (void **esp)
   return success;
 }
 
+// -------------------------------------------------------------------------- //
+
+// TODO
+
+// Make a function which checks if an access is probably a stack access
+// - to be called in syscall_handler() and page_fault()
+// - user pointers are (should be) verified becore accessing so don't need to check during kernel page faults
+// - PUSHA command means the accesses could be up to 32 bytes below the stack pointer
+/*bool is_stack_access (void *addr, struct intr_frame *f)
+{
+  
+}*/
+
+// Make a function which allocates a page & frame and installs it on the bottom of the stack
+
+// define limit on stack size (probably 8mb) (in terms of pages?)
+
+// -------------------------------------------------------------------------- //
+
 /* Adds a mapping from user virtual address UPAGE to kernel
    virtual address KPAGE to the page table.
    If WRITABLE is true, the user process may modify the page;

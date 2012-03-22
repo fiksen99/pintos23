@@ -66,7 +66,6 @@ lookup_frame (void *addr)
   return e != NULL ? hash_entry (e, struct frame, elem) : NULL;
 }
 
-
 //TODO: currently assumes always free frame.
 struct frame *
 get_free_frame (void)

@@ -5,6 +5,7 @@
 #include "threads/thread.h"
 #include "threads/malloc.h"
 #include "threads/palloc.h"
+#include "threads/vaddr.h"
 #include "userprog/process.h"
 #include "threads/synch.h"
 #include "filesys/filesys.h"
@@ -400,17 +401,26 @@ execute_mmap (int fd, void *addr)
   if (filesize == 0)
     return MAP_FAILED;
 
-  // must also fail if the range of pages mapped overlaps any existing pages
+  struct thread *t = thread_current ();
+
+  unsigned int pages = filesize / PGSIZE + (filesize % PGSIZE ? 1 : 0);
+  unsigned int i;
+  void *page_addr;
+  for (i = 0, page_addr = addr; i < pages; i++, page_addr += PGSIZE)
+  {
+    if (page_lookup (&t->supp_page_table, pg_round_down (page_addr)) != NULL)
+    {
+      return MAP_FAILED;
+    }
+  }
 
   struct mapid_elems *new_entry = malloc (sizeof (struct mapid_elems));
   new_entry->mapid = new_mapid++;
   new_entry->file = file;
   new_entry->addr = addr;
+  new_entry->tid = t->tid;
   list_push_back (&mapid_list, &new_entry->elem);
-  
-  size_t pages = filesize / PGSIZE + (filesize % PGSIZE == 0 ? 0 : 1);
 
-  unsigned int i;
   off_t offset;
   for (i = 0, offset = 0; i < pages; i++, offset += PGSIZE)
   {
@@ -419,7 +429,7 @@ execute_mmap (int fd, void *addr)
     p->page_location = PG_DISK;
     p->data.disk.file = file;
     p->data.disk.offset = offset;
-    hash_insert (&thread_current ()->supp_page_table, &p->elem);
+    hash_insert (&t->supp_page_table, &p->elem);
   }
 
   return new_entry->mapid;
@@ -431,40 +441,64 @@ execute_mmap (int fd, void *addr)
 static uint32_t
 execute_munmap (mapid_t mapid)
 {
-  // look up in mapid list
-  // if NULL, return failure
+  // TODO: what if the file no longer exists
   struct mapid_elems *mapid_elem = find_struct_from_mapid (mapid);
   struct file *f = mapid_elem->file;
   if (f == NULL)
-    return 0;
+    return -1;
 
-  // remove and free memory for mapid_elems
+  void *addr = mapid_elem->addr;
+  struct thread *t = thread_current ();
+
   list_remove (&mapid_elem->elem);
   free (&mapid_elem->elem);  
 
-  // go through all pages, write their data to file iff they have been changed
-  /*lock_acquire (&file_lock);
-  off_t filesize = file_length (f);
-  lock_release (&file_lock); */
-
-  /* size_t pages = filesize / PGSIZE;
-  if (filesize % PGSIZE != 0)
-    ++pages; */
-
-  pagedir_destroy (thread_current ()->pagedir);
-  //palloc_free_multiple (mapid_elem->addr, pages); //kills the pages? 
-
-  // close file
   lock_acquire (&file_lock);
+
+  off_t filesize = file_length (f);
+  unsigned int pages = filesize / PGSIZE + (filesize % PGSIZE ? 1 : 0);
+  unsigned int i;
+  off_t offset;
+  for (i = 0, offset = 0; i < pages; i++, offset += PGSIZE)
+  {
+    struct page *p = page_lookup (&t->supp_page_table, pg_round_down (addr + offset));
+    ASSERT (p != NULL);
+    if (p->page_location == PG_SWAP)
+    {
+      // TODO: read page from swap partition and write it back to the file
+    }
+    else if (p->page_location == PG_ZERO)
+    {
+      void *zero_page = frame_get_page (PAL_ZERO);
+      file_write_at (f, addr + offset, PGSIZE, offset);
+      frame_free_page (zero_page);
+    }
+    else if (p->page_location == PG_MEM)
+    {
+      // TODO: read dirty bit and only write back to file if it has been modified
+      if (offset == (filesize / PGSIZE) * PGSIZE)
+      {
+        file_write_at (f, addr + offset, filesize - offset, offset);
+      }
+      else
+      {
+        file_write_at (f, addr + offset, PGSIZE, offset);
+      }
+      frame_free_page (addr + offset);
+    }
+    pagedir_clear_page (t->pagedir, addr + offset);
+    hash_delete (&t->supp_page_table, &p->elem);
+    free (p);
+  }
+
   file_close (f);
+
   lock_release (&file_lock);
-  
+
   return 1;
 }
 
-// TODO implicitly unmap all mappings on process exit - do this in process_exit
-
-/* functions to correct help system call handling */
+/* functions to help system call handling */
 
 static struct file *
 find_file_from_fd (int fd)
@@ -529,6 +563,20 @@ close_thread_fds (void)
     else
     {
       e = list_next (e);
+    }
+  }
+}
+
+void close_thread_mapids ()
+{
+  tid_t tid = thread_current ()->tid;
+  struct list_elem *e;
+  for (e = list_begin (&mapid_list); e != list_end (&mapid_list); e = list_next (e))
+  {
+    struct mapid_elems *mapid_elem = list_entry (e, struct mapid_elems, elem);
+    if (mapid_elem->tid == tid)
+    {
+      execute_munmap (mapid_elem->mapid);
     }
   }
 }

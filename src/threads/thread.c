@@ -301,6 +301,7 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
   close_thread_fds ();
+  close_thread_mapids ();
 
 #ifdef USERPROG
   process_exit ();

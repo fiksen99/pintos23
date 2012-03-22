@@ -166,7 +166,7 @@ page_fault (struct intr_frame *f)
 
   struct thread *curr = thread_current();
   void *fault_page = pg_round_down (fault_addr);
-  printf ("faulting address %p\naccessing page %p\n\n", fault_addr, fault_page);
+ // printf ("faulting address %p\naccessing page %p\n", fault_addr, fault_page);
   struct page *supp_page = page_lookup (&curr->supp_page_table, fault_page);
   if (supp_page == NULL)
   {
@@ -201,7 +201,6 @@ page_fault (struct intr_frame *f)
       // because if it ever needs to go back into a file then it should use the old   
       void * kpage = palloc_get_page (PAL_USER);
       lock_acquire (&file_lock);
-//      printf ("offset: %d\n",supp_page->data.disk.offset);
       off_t read_bytes = file_read_at (supp_page->data.disk.file, kpage, PGSIZE,
         supp_page->data.disk.offset);
       lock_release (&file_lock);
@@ -211,6 +210,7 @@ page_fault (struct intr_frame *f)
       pagedir_set_page (curr->pagedir, supp_page->addr, kpage,
         supp_page->data.disk.writable);
       lock_release (&curr->pagedir_lock);
+//printf("offset: %d, %d\n\n", supp_page->data.disk.offset, *( (uint32_t *) kpage));
       return;
     }
     // possibly reached if two threads page fault on the same page, one has already

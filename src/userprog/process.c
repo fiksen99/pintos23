@@ -386,6 +386,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
+      if( i > 0 )
+      {
+        file_page += PGSIZE;
+      }
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
@@ -489,8 +493,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   {
     spt_init (&curr->supp_page_table);
   }
-
-  file_seek (file, ofs);
+  printf( "ofs at function call: %d\n", ofs);
+  printf("read_bytes: %d, zero_bytes: %d\n", read_bytes, zero_bytes);
   while (read_bytes > 0 || zero_bytes > 0) 
   {
     /* Calculate how to fill this page.
@@ -499,7 +503,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-    if (struct page *supp_page = malloc (sizeof (struct page)) == NULL)
+    struct page *supp_page;
+    if ((supp_page = malloc (sizeof (struct page))) == NULL)
       return false;
     supp_page->addr = upage;
     if (page_read_bytes == 0)
@@ -514,13 +519,16 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       supp_page->data.disk.writable = writable;
     }
     hash_insert (&curr->supp_page_table, &supp_page->elem);
-    printf("storing upage: %p\n", upage);
+    printf("storing upage: %p with offset: %d\n", upage, ofs);
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
     ofs += PGSIZE;
     upage += PGSIZE;
   }
+
+  file_seek (file, ofs);
+
   return true;
 }
 

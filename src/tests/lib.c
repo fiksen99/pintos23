@@ -31,6 +31,7 @@ msg (const char *format, ...)
 
   if (quiet)
     return;
+//printf("%p %d", &quiet, quiet);
   va_start (args, format);
   vmsg (format, args, "\n");
   va_end (args);

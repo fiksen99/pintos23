@@ -123,10 +123,7 @@ void
 block_read (struct block *block, block_sector_t sector, void *buffer)
 {
   check_sector (block, sector);
-/*  printf("for addr \"%p\" in page dir \"%p\" at the start of block_read\nlookup page returns: %p\n", (void *)0x8048000, (uint32_t *)0xc010d000, lookup_page ((uint32_t *)0xc010d000, (void *)0x8048000, false));
-  printf("LINE 128 IN BLOCK.C OVERWRITES PAGEDIR VALUE FFFUUUUUUUUUUUUUUUUU...\n\n");*/
-  block->ops->read (block->aux, sector, buffer);/*
-  printf("for addr \"%p\" in page dir \"%p\" at the end of block_read\nlookup page returns: %p\n\n", (void *)0x8048000, (uint32_t *)0xc010d000, lookup_page ((uint32_t *)0xc010d000, (void *)0x8048000, false));*/
+  block->ops->read (block->aux, sector, buffer);
   block->read_cnt++;
 }
 

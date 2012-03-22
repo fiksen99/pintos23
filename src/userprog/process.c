@@ -413,7 +413,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   t->file = file;
   return success;
 }
-
+
 /* load() helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
@@ -549,20 +549,27 @@ setup_stack (void **esp)
 
 // -------------------------------------------------------------------------- //
 
-// TODO
+// TODO: Stack growth
 
-// Make a function which checks if an access is probably a stack access
-// - to be called in syscall_handler() and page_fault()
-// - user pointers are (should be) verified becore accessing so don't need to check during kernel page faults
-// - PUSHA command means the accesses could be up to 32 bytes below the stack pointer
-/*bool is_stack_access (void *addr, struct intr_frame *f)
+// Add stack_size (in pages) to struct thread
+// - Initialise in init_thread() (or thread_init()) to 1
+
+// in page_fault, if no supp page exists and is_stack_access, call extend_stack
+// then need to page fault again to allocate the zero page
+
+/* Cheks is an access is probably a stack access */
+bool
+is_stack_access (void *addr, struct intr_frame *f)
 {
-  
-}*/
+  // (PUSHA command means the accesses could be up to 32 bytes below the stack pointer)
+}
 
-// Make a function which allocates a page & frame and installs it on the bottom of the stack
-
-// define limit on stack size (probably 8mb) (in terms of pages?)
+/* Extend the stack by 1 page */
+void
+extend_stack ()
+{
+  // Allocate lazily as PG_ZERO so the code isn't duplicated?
+}
 
 // -------------------------------------------------------------------------- //
 

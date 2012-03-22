@@ -19,7 +19,7 @@ unsigned
 spt_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
 {
   struct page *spt = hash_entry (elem, struct page, elem);
-  return hash_bytes (spt->addr, sizeof (void *));
+  return hash_bytes (&spt->addr, sizeof (void *));
 }
 
 struct page *

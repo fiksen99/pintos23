@@ -32,16 +32,16 @@ process_execute (const char *command)
 {
   /* Make a copy of command.
      Otherwise there's a race between the caller and load(). */
-  char *command_copy = frame_get_page (0);
+  char *command_copy = palloc_get_page (0);
   if (command_copy == NULL)
     return TID_ERROR;
   strlcpy (command_copy, command, PGSIZE);
 
   /* Create an array to store the arguments */
-  char **arguments = frame_get_page (0);
+  char **arguments = palloc_get_page (0);
   if (arguments == 0)
   {
-    frame_free_page (command_copy);
+    palloc_free_page (command_copy);
     return TID_ERROR;
   }
 
@@ -54,8 +54,8 @@ process_execute (const char *command)
   {
     if (i >= MAX_ARGS)
     {
-      frame_free_page (command_copy);
-      frame_free_page (arguments);
+      palloc_free_page (command_copy);
+      palloc_free_page (arguments);
       return TID_ERROR;
     }
     arguments [i] = token;
@@ -67,8 +67,8 @@ process_execute (const char *command)
                              arguments);
   if (tid == TID_ERROR)
   {
-    frame_free_page (command_copy);
-    frame_free_page (arguments);
+    palloc_free_page (command_copy);
+    palloc_free_page (arguments);
   }
   return tid;
 }
@@ -94,8 +94,8 @@ start_process (void *arguments_)
   /* If load failed, quit. */
   if (!success)
   {
-    frame_free_page (command);
-    frame_free_page (arguments);
+    palloc_free_page (command);
+    palloc_free_page (arguments);
     curr->parent->load_fail = true;
     sema_up (&curr->parent->exec_sema);
     thread_exit ();
@@ -117,7 +117,7 @@ start_process (void *arguments_)
     arguments [i] = if_.esp;
   }
 
-  frame_free_page (command);
+  palloc_free_page (command);
 
   /* Round if_.esp down to the nearest multiple of 4 */
   if_.esp -= ((uint32_t) if_.esp) % 4;
@@ -129,7 +129,7 @@ start_process (void *arguments_)
     STACK_PUSH (if_.esp, char *, arguments [i]);
   }
 
-  frame_free_page (arguments);
+  palloc_free_page (arguments);
 
   /* Push argv */
   void *argv = if_.esp;
@@ -484,9 +484,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
-  printf("begins to load segment\n");
   struct thread *curr = thread_current ();
-  bool is_zero_page;
 
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
@@ -513,11 +511,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       }
       if (curr->supp_page_table.hash == NULL)
       {
-  printf( "thread name: %s\n",curr->name);
         spt_init (&curr->supp_page_table);
       }
+      printf("supp element: %p\n", supp_page);
       hash_insert (&curr->supp_page_table, &supp_page->elem);
-
+//      print_hash_table (&curr->supp_page_table);
+//      while(true){printf("\n");}
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
@@ -534,14 +533,14 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = frame_get_page (PAL_USER | PAL_ZERO);
+  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
         *esp = PHYS_BASE;
       else
-        frame_free_page (kpage);
+        palloc_free_page (kpage);
     }
   return success;
 }

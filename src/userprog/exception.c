@@ -135,7 +135,6 @@ page_fault (struct intr_frame *f)
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
   bool valid;        /* True: fault_addr is a valid memory reference */
-  intr_disable ();
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -145,9 +144,7 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
-  printf ("fault address: %p, EIP: %p\n", fault_addr, f->eip);
-    struct thread *curr = thread_current();
-    struct page *page = page_lookup (&curr->supp_page_table, pg_round_down (fault_addr));
+//  printf ("fault address: %p, EIP: %p\n", fault_addr, f->eip);
 
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
@@ -160,67 +157,54 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
-//  valid = 0 < fault_addr && fault_addr < PHYS_BASE; 
-
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-/*  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);*/
-//  if (!valid)
-//    thread_exit();
-    // possibly need to round up not down
-    printf ("page addr: %p\n", page);
-    if (page == NULL)
+//  ASSERT( false );
+  printf ("user access: %s\n", user?"true":"false");
+  struct thread *curr = thread_current();
+  void *page_addr = pg_round_down (fault_addr);
+  struct page *page = page_lookup (&curr->supp_page_table, page_addr);
+  if (page == NULL)
+  {
+    // page doesnt exist
+    /* TODO: modify process_exit to free all new resources */
+    printf( "user accessed page that doesnt exist\n" );
+    thread_exit ();
+  }
+  else
+  {
+    //page exists, needs to be loaded into frame table
+    if (page->page_location == PG_ZERO)
     {
-      // page doesnt exist
-      /* TODO: modify process_exit to free all new resources */
-      process_exit ();
+      void * kpage = palloc_get_page (PAL_USER|PAL_ZERO);
+      page->page_location = PG_MEM;
+      pagedir_set_page (curr->pagedir, &page->addr, kpage, page->data.zero.writable);
+      return;
+      
     }
-    else
+    else if (page->page_location == PG_SWAP)
     {
-      //page exists, needs to be loaded into frame table
-      printf("page_location: %d\n", page->page_location);
-      if (page->page_location == PG_ZERO)
-      {
-        struct frame *frame = get_free_frame ();
-        frame->addr = page->addr;
-        frame->owner_tid = curr->tid;
-        memset (frame->addr, 0, PGSIZE);
-        page->page_location = PG_MEM;
-        pagedir_set_page (curr->pagedir, fault_addr, page->addr, page->data.zero.writable);
-        return;
-        
-      }
-      else if (page->page_location == PG_SWAP)
-      {
-        // gets page from swap table and moves it to a free frame
-        // race conditions?
-        struct block *block = block_get_role(BLOCK_SWAP);
-        //TODO all of this
-      }
-      else if (page->page_location == PG_DISK)
-      {
-        // This is an interrupt context, it thread_current() (also curr) not the kernel thread?
-        // When reading from the file, need to store the file it was loaded from because if it ever needs to go back into a file then it should use the old   
-        struct frame *frame = get_free_frame ();
-        frame->addr = page->addr;
-        frame->owner_tid = curr->tid;
-        lock_acquire (&file_lock);
-        off_t read_bytes = file_read_at (page->data.disk.file, f, PGSIZE, page->data.disk.offset);
-        lock_release (&file_lock);
-        off_t zeroes = PGSIZE - read_bytes;
-        if (zeroes > 0)
-        {
-          memset (frame->addr + read_bytes, 0, zeroes);
-        }
-        page->page_location = PG_MEM;
-        pagedir_set_page (curr->pagedir, page->addr, fault_addr, page->data.disk.writable);
-        return;
-      }
+      // gets page from swap table and moves it to a free frame
+      // race conditions?
+      struct block *block = block_get_role(BLOCK_SWAP);
+      //TODO all of this
     }
+    else if (page->page_location == PG_DISK)
+    {
+      // This is an interrupt context, it thread_current() (also curr) not the kernel thread?
+      // When reading from the file, need to store the file it was loaded from because if it ever needs to go back into a file then it should use the old   
+      lock_acquire (&file_lock);
+      off_t read_bytes = file_read_at (page->data.disk.file, f, PGSIZE, page->data.disk.offset);
+      lock_release (&file_lock);
+      off_t zeroes = PGSIZE - read_bytes;
+      void * kpage = palloc_get_page (PAL_USER);
+      page->page_location = PG_MEM;
+      pagedir_set_page (curr->pagedir, page->addr, kpage, page->data.disk.writable);
+      return;
+    }
+    // possibly reached if two threads page fault on the same page, one has already
+    // updated page location but not added to pagedir yet.
+    else if (page->location == PG_MEM)
+    {
+      return;
+    }
+  }
 }

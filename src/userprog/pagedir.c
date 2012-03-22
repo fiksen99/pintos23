@@ -108,6 +108,8 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
   ASSERT (pd != init_page_dir);
 
   pte = lookup_page (pd, upage, true);
+  printf("pd: %p\nupage: %p\nkpage: %p\nwritable: %s\n", pd, upage, kpage, writable? "true":"false");
+  printf("pte: %p\n\n\n",pte);
 
   if (pte != NULL) 
     {

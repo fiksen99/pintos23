@@ -12,6 +12,7 @@
 #include "userprog/pagedir.h"
 #include <string.h>
 #include "syscall.h"
+#include "threads/synch.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -165,13 +166,13 @@ page_fault (struct intr_frame *f)
 
   struct thread *curr = thread_current();
   void *fault_page = pg_round_down (fault_addr);
-  printf ("faulting instruction address %p\naccessing page %p\n", eip, fault_page);
+  printf ("faulting address %p\naccessing page %p\n\n", fault_addr, fault_page);
   struct page *supp_page = page_lookup (&curr->supp_page_table, fault_page);
   if (supp_page == NULL)
   {
     // page doesnt exist
     /* TODO: modify process_exit to free all new resources */
-    printf( "user accessed page that doesnt exist\n" );
+    printf ("user accessed page that doesnt exist\n");
     thread_exit ();
   }
   else
@@ -181,7 +182,9 @@ page_fault (struct intr_frame *f)
     {
       void * kpage = palloc_get_page (PAL_USER|PAL_ZERO);
       supp_page->page_location = PG_MEM;
+      lock_acquire (&curr->pagedir_lock);
       pagedir_set_page (curr->pagedir, supp_page->addr, kpage, supp_page->data.zero.writable);
+      lock_release (&curr->pagedir_lock);
       return;
       
     }
@@ -194,15 +197,20 @@ page_fault (struct intr_frame *f)
     }
     else if (supp_page->page_location == PG_DISK)
     {
-      // When reading from the file, need to store the file it was loaded from because if it ever needs to go back into a file then it should use the old   
+      // When reading from the file, need to store the file it was loaded from 
+      // because if it ever needs to go back into a file then it should use the old   
       void * kpage = palloc_get_page (PAL_USER);
       lock_acquire (&file_lock);
+//      printf ("offset: %d\n",supp_page->data.disk.offset);
       off_t read_bytes = file_read_at (supp_page->data.disk.file, kpage, PGSIZE,
         supp_page->data.disk.offset);
       lock_release (&file_lock);
       off_t zeroes = PGSIZE - read_bytes;
       supp_page->page_location = PG_MEM;
-      pagedir_set_page (curr->pagedir, supp_page->addr, kpage, supp_page->data.disk.writable);
+      lock_acquire (&curr->pagedir_lock);
+      pagedir_set_page (curr->pagedir, supp_page->addr, kpage,
+        supp_page->data.disk.writable);
+      lock_release (&curr->pagedir_lock);
       return;
     }
     // possibly reached if two threads page fault on the same page, one has already

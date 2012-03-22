@@ -485,41 +485,42 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
   struct thread *curr = thread_current ();
+  if (curr->supp_page_table.hash == NULL)
+  {
+    spt_init (&curr->supp_page_table);
+  }
 
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
-    {
-      /* Calculate how to fill this page.
-         We will read PAGE_READ_BYTES bytes from FILE
-         and zero the final PAGE_ZERO_BYTES bytes. */
-      size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-      size_t page_zero_bytes = PGSIZE - page_read_bytes;
+  {
+    /* Calculate how to fill this page.
+       We will read PAGE_READ_BYTES bytes from FILE
+       and zero the final PAGE_ZERO_BYTES bytes. */
+    size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      struct page *supp_page = malloc (sizeof (struct page));
-      supp_page->addr = upage;
-      if (page_read_bytes == 0)
-      {
-        supp_page->page_location = PG_ZERO;
-        supp_page->data.zero.writable = writable;
-      } else
-      {
-        supp_page->page_location = PG_DISK;
-        supp_page->data.disk.file = file;
-        supp_page->data.disk.offset = ofs;
-        supp_page->data.disk.writable = writable;
-      }
-      if (curr->supp_page_table.hash == NULL)
-      {
-        spt_init (&curr->supp_page_table);
-      }
-      hash_insert (&curr->supp_page_table, &supp_page->elem);
-      printf("loading upage: %p\n", upage);
-//      printf("for addr \"%p\" in pagedir \"%p\" in load segment\nlookup page returns: %p\n\n", upage, curr->pagedir, lookup_page (curr->pagedir, upage, false));
-      /* Advance. */
-      read_bytes -= page_read_bytes;
-      zero_bytes -= page_zero_bytes;
-      upage += PGSIZE;
+    if (struct page *supp_page = malloc (sizeof (struct page)) == NULL)
+      return false;
+    supp_page->addr = upage;
+    if (page_read_bytes == 0)
+    {
+      supp_page->page_location = PG_ZERO;
+      supp_page->data.zero.writable = writable;
+    } else
+    {
+      supp_page->page_location = PG_DISK;
+      supp_page->data.disk.file = file;
+      supp_page->data.disk.offset = ofs;
+      supp_page->data.disk.writable = writable;
     }
+    hash_insert (&curr->supp_page_table, &supp_page->elem);
+    printf("storing upage: %p\n", upage);
+    /* Advance. */
+    read_bytes -= page_read_bytes;
+    zero_bytes -= page_zero_bytes;
+    ofs += PGSIZE;
+    upage += PGSIZE;
+  }
   return true;
 }
 
@@ -535,7 +536,7 @@ setup_stack (void **esp)
   supp_page->addr = (void *)PHYS_BASE - PGSIZE;
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   supp_page->page_location = PG_MEM;
-  supp_page->data.mem.frame = kpage;
+  supp_page->data.mem.frame = (void*)kpage;
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
@@ -545,10 +546,6 @@ setup_stack (void **esp)
         palloc_free_page (kpage);
     }
     struct thread *curr = thread_current();
-    if (curr->supp_page_table.hash == NULL)
-    {
-      spt_init (&curr->supp_page_table);
-    }
     hash_insert (&curr->supp_page_table, &supp_page->elem);
   return success;
 }

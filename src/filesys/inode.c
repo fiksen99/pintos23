@@ -7,6 +7,7 @@
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
 
+
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
@@ -203,7 +204,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
-
+  
   while (size > 0) 
     {
       /* Disk sector to read, starting byte offset within sector. */

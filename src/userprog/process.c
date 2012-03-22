@@ -20,6 +20,7 @@
 #include "threads/malloc.h"
 #include "vm/frame.h"
 
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -140,7 +141,6 @@ start_process (void *arguments_)
 
   /* Push a fake return address */
   STACK_PUSH (if_.esp, void *, NULL);
-
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -495,7 +495,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      /* Get a page of memory. Use palloc as want lazy copying to memory*/
       struct page *supp_page = malloc (sizeof (struct page));
       supp_page->addr = upage;
       if (page_read_bytes == 0)
@@ -513,10 +512,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       {
         spt_init (&curr->supp_page_table);
       }
-      printf("supp element: %p\n", supp_page);
       hash_insert (&curr->supp_page_table, &supp_page->elem);
-//      print_hash_table (&curr->supp_page_table);
-//      while(true){printf("\n");}
+      printf("loading upage: %p\n", upage);
+//      printf("for addr \"%p\" in pagedir \"%p\" in load segment\nlookup page returns: %p\n\n", upage, curr->pagedir, lookup_page (curr->pagedir, upage, false));
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
@@ -533,7 +531,11 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
+  struct page *supp_page = malloc (sizeof (struct page));
+  supp_page->addr = (void *)PHYS_BASE - PGSIZE;
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  supp_page->page_location = PG_MEM;
+  supp_page->data.mem.frame = kpage;
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
@@ -542,6 +544,12 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
+    struct thread *curr = thread_current();
+    if (curr->supp_page_table.hash == NULL)
+    {
+      spt_init (&curr->supp_page_table);
+    }
+    hash_insert (&curr->supp_page_table, &supp_page->elem);
   return success;
 }
 

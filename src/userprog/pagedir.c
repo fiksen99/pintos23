@@ -54,7 +54,7 @@ pagedir_destroy (uint32_t *pd)
    on CREATE.  If CREATE is true, then a new page table is
    created and a pointer into it is returned.  Otherwise, a null
    pointer is returned. */
-static uint32_t *
+uint32_t *
 lookup_page (uint32_t *pd, const void *vaddr, bool create)
 {
   uint32_t *pt, *pde;
@@ -107,10 +107,10 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
   ASSERT (vtop (kpage) >> PTSHIFT < init_ram_pages);
   ASSERT (pd != init_page_dir);
 
-  pte = lookup_page (pd, upage, true);
-  printf("pd: %p\nupage: %p\nkpage: %p\nwritable: %s\n", pd, upage, kpage, writable? "true":"false");
-  printf("pte: %p\n\n\n",pte);
 
+  pte = lookup_page (pd, upage, true);
+//  printf("pd: %p\nupage: %p\nkpage: %p\nwritable: %s\n", pd, upage, kpage, writable? "true":"false");
+//  printf("pte: %p\n\n\n",pte);
   if (pte != NULL) 
     {
       ASSERT ((*pte & PTE_P) == 0);

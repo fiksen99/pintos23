@@ -24,18 +24,18 @@ struct disk_data
 {
   struct file *file;
   off_t offset;                 /* offset from beginning of file */
-  bool writable;                /* file is writable or not */
 };
 
 struct zero_data
 {
-  bool writable;                /* file is writable or not */
+
 };
 
 struct page
 {
   void *addr;           /* Virtual address */
   struct hash_elem elem;      /* Hash table element */
+  bool writable;                /* page is writable or not */
 
   enum
   {

@@ -28,6 +28,7 @@ void
 msg (const char *format, ...) 
 {
   va_list args;
+  printf("quiet: %x\n", (uint32_t) quiet);
 
   if (quiet)
     return;

@@ -99,6 +99,7 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    struct lock pagedir_lock;
 #endif
     struct list children;               /* List of child processes */
   	struct thread * parent;				      /* Pointer to parent thread */

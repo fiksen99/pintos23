@@ -19,8 +19,8 @@ Sahil Jain <sdj09@doc.ic.ac.uk>
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
 
-            PAGE TABLE MANAGEMENT
-            =====================
+                          PAGE TABLE MANAGEMENT
+                          =====================
 
 ---- DATA STRUCTURES ----
 
@@ -28,27 +28,52 @@ Sahil Jain <sdj09@doc.ic.ac.uk>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+---------------------------------------DO-------------------------------------
+
 ---- ALGORITHMS ----
 
 >> A2: In a few paragraphs, describe your code for locating the frame,
 >> if any, that contains the data of a given page.
 
+This is done using the code shown below:
+
+struct frame *
+lookup_frame (void *addr)
+{
+  struct frame frame;
+  struct hash_elem *e;
+
+  frame.addr = addr;
+  e = hash_find (&frame_table, &frame.elem);
+  return e != NULL ? hash_entry (e, struct frame, elem) : NULL;
+}
+
+We pass in the address of the page, which is stored in struct frame. The frame
+table is a hash table, so to locate a frame given a page address, all we have to
+do is use hash_find to obtain the frame.
+
 >> A3: How does your code coordinate accessed and dirty bits between
 >> kernel and user virtual addresses that alias a single frame, or
 >> alternatively how do you avoid the issue?
+
+---------------------------------------DO-------------------------------------
 
 ---- SYNCHRONIZATION ----
 
 >> A4: When two user processes both need a new frame at the same time,
 >> how are races avoided?
 
+---------------------------------------DO-------------------------------------
+
 ---- RATIONALE ----
 
 >> A5: Why did you choose the data structure(s) that you did for
 >> representing virtual-to-physical mappings?
 
-               PAGING TO AND FROM DISK
-               =======================
+---------------------------------------DO-------------------------------------
+
+                             PAGING TO AND FROM DISK
+                             =======================
 
 ---- DATA STRUCTURES ----
 
@@ -56,18 +81,26 @@ Sahil Jain <sdj09@doc.ic.ac.uk>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+---------------------------------------DO-------------------------------------
+
 ---- ALGORITHMS ----
 
 >> B2: When a frame is required but none is free, some frame must be
 >> evicted.  Describe your code for choosing a frame to evict.
 
+---------------------------------------DO-------------------------------------
+
 >> B3: When a process P obtains a frame that was previously used by a
 >> process Q, how do you adjust the page table (and any other data
 >> structures) to reflect the frame Q no longer has?
 
+---------------------------------------DO-------------------------------------
+
 >> B4: Explain your heuristic for deciding whether a page fault for an
 >> invalid virtual address should cause the stack to be extended into
 >> the page that faulted.
+
+---------------------------------------DO-------------------------------------
 
 ---- SYNCHRONIZATION ----
 
@@ -76,21 +109,29 @@ Sahil Jain <sdj09@doc.ic.ac.uk>
 >> textbook for an explanation of the necessary conditions for
 >> deadlock.)
 
+---------------------------------------DO-------------------------------------
+
 >> B6: A page fault in process P can cause another process Q's frame
 >> to be evicted.  How do you ensure that Q cannot access or modify
 >> the page during the eviction process?  How do you avoid a race
 >> between P evicting Q's frame and Q faulting the page back in?
+
+---------------------------------------DO-------------------------------------
 
 >> B7: Suppose a page fault in process P causes a page to be read from
 >> the file system or swap.  How do you ensure that a second process Q
 >> cannot interfere by e.g. attempting to evict the frame while it is
 >> still being read in?
 
+---------------------------------------DO-------------------------------------
+
 >> B8: Explain how you handle access to paged-out pages that occur
 >> during system calls.  Do you use page faults to bring in pages (as
 >> in user programs), or do you have a mechanism for "locking" frames
 >> into physical memory, or do you use some other design?  How do you
 >> gracefully handle attempted accesses to invalid virtual addresses?
+
+---------------------------------------DO-------------------------------------
 
 ---- RATIONALE ----
 
@@ -101,8 +142,10 @@ Sahil Jain <sdj09@doc.ic.ac.uk>
 >> where your design falls along this continuum and why you chose to
 >> design it this way.
 
-             MEMORY MAPPED FILES
-             ===================
+---------------------------------------DO-------------------------------------
+
+                           MEMORY MAPPED FILES
+                           ===================
 
 ---- DATA STRUCTURES ----
 
@@ -110,14 +153,67 @@ Sahil Jain <sdj09@doc.ic.ac.uk>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+Struct added in syscall.h:
+
+  struct mapid_elems
+  {
+    mapid_t mapid;
+    struct file *file;
+    void *addr;
+    struct list_elem elem;
+  };
+
+This struct is used as a list which holds all of the mappings and its information
+which is needed in page_fault.
+
+Static variable added in syscall.c:
+
+  static mapid_t new_mapid = 0;
+
+This variable allocated a new mapping so that each mapping within a process
+can be uniquely identified. It is incremented every time its allocated.
+
+Struct added in swap.h:
+
+struct disk_data
+{
+  struct file *file;
+  off_t offset;                 /* offset from beginning of file */
+};
+
+This struct is used in the page struct. It contains the file which is in the
+disk memory and contains the offset. The offset is the position in the file from
+the starting position.
+
+
 ---- ALGORITHMS ----
 
 >> C2: Describe how memory mapped files integrate into your virtual
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
+---------------------------------------DO-------------------------------------
+
 >> C3: Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
+
+The following code in execute_mmap checks this:
+
+  unsigned int pages = filesize / PGSIZE + (filesize % PGSIZE ? 1 : 0);
+  unsigned int i;
+  void *page_addr;
+  for (i = 0, page_addr = addr; i < pages; i++, page_addr += PGSIZE)
+  {
+    if (page_lookup (&t->supp_page_table, pg_round_down (page_addr)) != NULL)
+    {
+      return MAP_FAILED;
+    }
+  }
+
+We iterate through the current thread's supplementary page table, and look for
+pages which exist. If they do, we return MAP_FAILED (which is -1), meaning
+that the new file mapping has failed.
+
 
 ---- RATIONALE ----
 
@@ -128,8 +224,10 @@ Sahil Jain <sdj09@doc.ic.ac.uk>
 >> implementation either does or does not share much of the code for
 >> the two situations.
 
-               SURVEY QUESTIONS
-               ================
+---------------------------------------DO-------------------------------------
+
+                               SURVEY QUESTIONS
+                               ================
 
 Answering these questions is optional, but it will help us improve the
 course in future quarters.  Feel free to tell us anything you

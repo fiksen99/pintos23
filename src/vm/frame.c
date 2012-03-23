@@ -8,7 +8,6 @@
 struct hash frame_table;
 //static struct frame *choose_frame_for_eviction ();
 //static void perform_eviction ();
-static struct frame * get_frame (void *, void *);
 static struct frame * lookup_frame (void *);
 static struct frame * choose_frame_for_eviction (void);
 
@@ -30,7 +29,7 @@ unsigned
 frame_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
 {
   struct frame *frame = hash_entry (elem, struct frame, elem);
-  return hash_bytes (frame->upage, sizeof(void *));
+  return hash_bytes (&frame->upage, sizeof(void *));
 }
 
 void *
@@ -43,14 +42,18 @@ frame_get_page (enum palloc_flags flags, void *upage, bool writable)
     struct frame *frame = choose_frame_for_eviction ();
     frame_free_page (frame->upage);
   }
-  get_frame (upage);
-  pagedir_set_page (thread_current()->pd, upage, kpage, writable);
+  struct frame *frame = malloc (sizeof (struct frame));
+  frame->owner = thread_current ();
+  frame->upage = upage;
+  hash_insert (&frame_table, &frame->elem);
+  pagedir_set_page (thread_current()->pagedir, upage, kpage, writable);
+  return kpage;
 }
 
 void 
 frame_free_page (void *upage)
 {
-  struct pagedir *pd = thread_current ()->pagedir;
+  uint32_t *pd = thread_current ()->pagedir;
   void *kpage = pagedir_get_page (pd, upage);
   pagedir_clear_page (pd, upage);
   palloc_free_page (kpage);
@@ -71,16 +74,6 @@ lookup_frame (void *upage)
 }
 
 static struct frame *
-get_frame (void *upage)
-{
-  struct frame *frame = malloc (sizeof (struct frame));
-  frame->owner_tid = thread_current ()->tid;
-  frame->upage = upage;
-  hash_insert (&frame_table, &frame->elem);
-  return frame;
-}
-
-static struct frame *
 choose_frame_for_eviction ()
 {
   ASSERT (!hash_empty (&frame_table));
@@ -94,7 +87,7 @@ choose_frame_for_eviction ()
     //is page to evict
     if (i == rand)
     {
-      return hash_entry (hash_cur (&i), struct frame, elem);
+      return hash_entry (hash_cur (&it), struct frame, elem);
     }
   }
 }

@@ -8,8 +8,6 @@
 #include "hash.h"
 #include "../debug.h"
 #include "threads/malloc.h"
-#include "vm/page.h"
-#include "threads/vaddr.h"
 
 #define list_elem_to_hash_elem(LIST_ELEM)                       \
         list_entry(LIST_ELEM, struct hash_elem, list_elem)
@@ -429,3 +427,4 @@ remove_elem (struct hash *h, struct hash_elem *e)
   h->elem_cnt--;
   list_remove (&e->list_elem);
 }
+

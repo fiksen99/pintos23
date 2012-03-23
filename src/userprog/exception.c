@@ -6,6 +6,7 @@
 #include "threads/thread.h"
 #include "vm/page.h"
 #include "vm/frame.h"
+#include "vm/swap.h"
 #include "userprog/process.h"
 #include "devices/block.h"
 #include "threads/vaddr.h"
@@ -136,7 +137,6 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
-//  bool valid;        /* True: fault_addr is a valid memory reference */
 
   uint32_t esp = (uint32_t) f->esp;
 
@@ -148,7 +148,6 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
-//  printf ("fault address: %p, EIP: %p\n", fault_addr, f->eip);
 
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
@@ -177,7 +176,6 @@ handle_page_fault (void *fault_addr, uint32_t esp)
 {
   struct thread *curr = thread_current();
   void *fault_page = pg_round_down (fault_addr);
-//  printf ("%p ", fault_addr);
   struct page *supp_page = page_lookup (&curr->supp_page_table, fault_page);
   if (supp_page == NULL)
   {
@@ -194,47 +192,39 @@ handle_page_fault (void *fault_addr, uint32_t esp)
     }
     // page doesnt exist
     /* TODO: modify process_exit to free all new resources */
-    //printf ("user accessed page that doesnt exist\n");
     thread_exit ();
   }
   else
   {
     //page exists, needs to be loaded into frame table
-    void *upage = supp_page->addr;
     bool writable = supp_page->writable;
     if (supp_page->page_location == PG_ZERO)
     {
-      frame_get_page (PAL_USER|PAL_ZERO, upage, writable);
-      supp_page->page_location = PG_MEM;
-      return; 
+      frame_get_page (PAL_USER | PAL_ZERO, fault_page, writable);
     }
     else if (supp_page->page_location == PG_SWAP)
     {
-      // gets page from swap table and moves it to a free frame
-      // race conditions?
-      //struct block *block = block_get_role(BLOCK_SWAP);
-      //TODO all of this
+      void *kpage = frame_get_page (PAL_USER, fault_page, writable);
+      swap_read (supp_page->index, kpage);
+      supp_page->index = -1;
     }
     else if (supp_page->page_location == PG_DISK)
     {
-      // When reading from the file, need to store the file it was loaded from 
-      // because if it ever needs to go back into a file then it should use the old   
-      void * kpage = frame_get_page (PAL_USER, upage, writable);
-      //printf ("page allocated: %p\n", kpage);
+      // TODO: (eviction) When reading from the file, need to store the file it was loaded from 
+      // because if it ever needs to go back into a file then it should use the old  
+      void *kpage = frame_get_page (PAL_USER, fault_page, writable);
       lock_acquire (&file_lock);
-      off_t read_bytes = file_read_at (supp_page->file, kpage, PGSIZE,
-        supp_page->offset);
+      off_t read_bytes = file_read_at (supp_page->file, kpage, PGSIZE, supp_page->offset);
       lock_release (&file_lock);
       off_t zeroes = PGSIZE - read_bytes;
       memset(kpage + read_bytes, 0, zeroes);
-      supp_page->page_location = PG_MEM;
-      return;
     }
-    // possibly reached if two threads page fault on the same page, one has already
-    // updated page location but not added to pagedir yet.
     else if (supp_page->page_location == PG_MEM)
     {
-      return;
+      // possibly reached if two threads page fault on the same page, one has already
+      // updated page location but not added to pagedir yet.
     }
+    supp_page->page_location = PG_MEM;
+    return;
   }
 }

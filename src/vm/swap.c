@@ -9,7 +9,7 @@ static struct lock swap_lock;
 
 /* Initialises the swap bitmap */
 void
-swap_init ()
+swap_init () // TODO: call this
 {
   block = block_get_role (BLOCK_SWAP);
   int swap_pages = block_size (block) / NUM_SECTORS;
@@ -22,7 +22,7 @@ swap_init ()
 
 /* Destroys the swap bitmap */
 void
-swap_destroy ()
+swap_destroy () // TODO: call this
 {
   lock_acquire (&swap_lock);
   bitmap_destroy (swap_bitmap);
@@ -32,7 +32,7 @@ swap_destroy ()
 /* Attempts to write the given frame to a free swap slot, returns -1 if swap is
    full, swap slot otherwise */
 int
-swap_try_write (struct frame *frame)
+swap_try_write (void *addr)
 {
   lock_acquire (&swap_lock);
   int index;
@@ -46,7 +46,7 @@ swap_try_write (struct frame *frame)
 
     int i;
     for (i = 0; i < NUM_SECTORS; i++)
-      block_write (block, (index * NUM_SECTORS) + i, frame->addr
+      block_write (block, (index * NUM_SECTORS) + i, addr
                                                      + (i * BLOCK_SECTOR_SIZE));
   }
   lock_release (&swap_lock);
@@ -55,13 +55,13 @@ swap_try_write (struct frame *frame)
 
 /* Reads the data from the given swap slot into the given frame */
 void
-swap_read (int index, struct frame *frame)
+swap_read (int index, void *addr)
 {
   lock_acquire (&swap_lock);
 
   int i;
   for (i = 0; i < NUM_SECTORS; i++)
-    block_read (block, (index * NUM_SECTORS) + i, frame->addr
+    block_read (block, (index * NUM_SECTORS) + i, addr
                                                   + (i * BLOCK_SECTOR_SIZE));
 
   bitmap_set_multiple (swap_bitmap, index, 1, false);

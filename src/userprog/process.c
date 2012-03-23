@@ -20,7 +20,6 @@
 #include "threads/malloc.h"
 #include "vm/frame.h"
 
-
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -387,8 +386,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              if (!load_segment (file, file_page, (void *) mem_page,
-                                 read_bytes, zero_bytes, writable))
+              bool successful = load_segment (file, file_page, (void *) mem_page, read_bytes, zero_bytes, writable);
+//              printf ("load segment successful at offset %d: %s\n", file_page, successful?"true":"false");
+              if (!successful)
                 goto done;
             }
           else  
@@ -399,6 +399,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
         }
     }
 
+//  printf("about to set up stack");
   /* Set up stack. */
   if (!setup_stack (esp)) {
     goto done;
@@ -514,6 +515,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       supp_page->offset = ofs;
     }
     supp_page->writable = writable;
+    supp_page->index = -1;
     hash_insert (&curr->supp_page_table, &supp_page->elem);
     //printf("storing upage: %p with offset: %d\n", upage, ofs);
     /* Advance. */
@@ -522,8 +524,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     ofs += PGSIZE;
     upage += PGSIZE;
   }
-
-  file_seek (file, ofs);
 
   return true;
 }
@@ -534,24 +534,19 @@ static bool
 setup_stack (void **esp) 
 {
   uint8_t *kpage;
-  bool success = false;
 
   struct page *supp_page = malloc (sizeof (struct page));
   void * upage = (void *)PHYS_BASE - PGSIZE;
   supp_page->addr = upage;
-  frame_get_page (PAL_USER | PAL_ZERO, upage, true);
+  supp_page->index = -1;
   supp_page->page_location = PG_MEM;
-  if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else
-        frame_free_page (upage);
-    }
+  //printf("\n about to get kpage and install\n");
+  kpage = frame_get_page (PAL_USER | PAL_ZERO, upage, true);
+//  printf("\n about to check kpage != NULL\n");
+  *esp = PHYS_BASE;
   struct thread *curr = thread_current();
   hash_insert (&curr->supp_page_table, &supp_page->elem);
-  return success;
+  return true;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel

@@ -6,7 +6,7 @@
 #include <syscall.h>
 
 const char *test_name;
-bool quiet = false;
+int quiet = false;
 
 static void
 vmsg (const char *format, va_list args, const char *suffix) 
@@ -29,10 +29,8 @@ msg (const char *format, ...)
 {
   va_list args;
 
-//  printf("quiet: %x\n", (uint32_t) quiet);
-
-  //if (quiet)
-  //  return;
+  if (quiet==1)
+    return;
   va_start (args, format);
   vmsg (format, args, "\n");
   va_end (args);

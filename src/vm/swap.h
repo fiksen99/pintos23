@@ -9,7 +9,7 @@
 
 void swap_init (void);
 void swap_destroy (void);
-int swap_try_write (struct frame *);
-void swap_read (int, struct frame *);
+int swap_try_write (void *);
+void swap_read (int, void *);
 
 #endif

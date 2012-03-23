@@ -202,7 +202,7 @@ bitmap_test (const struct bitmap *b, size_t idx)
   ASSERT (idx < b->bit_cnt);
   return (b->bits[elem_idx (idx)] & bit_mask (idx)) != 0;
 }
-
+
 /* Setting and testing multiple bits. */
 
 /* Sets all bits in B to VALUE. */
@@ -219,7 +219,8 @@ void
 bitmap_set_multiple (struct bitmap *b, size_t start, size_t cnt, bool value) 
 {
   size_t i;
-    ASSERT (b != NULL);
+  
+  ASSERT (b != NULL);
   ASSERT (start <= b->bit_cnt);
   ASSERT (start + cnt <= b->bit_cnt);
 
@@ -285,7 +286,7 @@ bitmap_all (const struct bitmap *b, size_t start, size_t cnt)
 {
   return !bitmap_contains (b, start, cnt, false);
 }
-
+
 /* Finding set or unset bits. */
 
 /* Finds and returns the starting index of the first group of CNT
@@ -359,7 +360,7 @@ bitmap_write (const struct bitmap *b, struct file *file)
   return file_write_at (file, b->bits, size, 0) == size;
 }
 #endif /* FILESYS */
-
+
 /* Debugging. */
 
 /* Dumps the contents of B to the console as hexadecimal. */
@@ -368,3 +369,4 @@ bitmap_dump (const struct bitmap *b)
 {
   hex_dump (0, b->bits, byte_cnt (b->bit_cnt), false);
 }
+

@@ -9,7 +9,6 @@
 #include "tests/vm/sample.inc"
 #include "tests/lib.h"
 #include "tests/main.h"
-#include <stdio.h>
 
 void
 test_main (void)
@@ -27,7 +26,6 @@ test_main (void)
   /* Read back via read(). */
   CHECK ((handle = open ("sample.txt")) > 1, "2nd open \"sample.txt\"");
   CHECK (read (handle, buf2 + 32768, slen) == slen, "read \"sample.txt\"");
-
 
   CHECK (!memcmp (sample, buf2 + 32768, slen), "compare written data against read data");
   close (handle);

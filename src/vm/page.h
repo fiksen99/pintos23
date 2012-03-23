@@ -26,6 +26,8 @@ struct page
   struct file *file;  
   off_t offset;                 /* offset from beginning of file */
 
+  int index;                    /* index in swap partition */
+
   //what data should be at address
   //what resources to free on process termination
 };

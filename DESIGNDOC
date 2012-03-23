@@ -267,14 +267,33 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+Compared to the first 3 tasks, task 3 was quite tough. It required lots of
+thinking, and we encountered several problems throughout the project. 
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+
+Working on all of Pintos gave us a greater insight of operating systems. While
+we were implementing it, what we learnt lectures began to make more sense.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
 
+One problem we came across was hash maps. We learnt that while iterating through
+the table, we could not delete elements and free memory. We wasted a lot of time
+on this error, and in the future, I believe it would be useful for groups to know
+that it is not possible. Otherwise, the specification is very good and offers 
+a good insight to Pintos. It has been a lifeline throughout the project.
+One other thing I would like to suggest is giving students a running version
+of pintos to play with. We would have liked to have a working version of Pintos.
+Finally, in the spec, there should be a note on the -j flag for make check.
+It saves a lot of time, and we only learnt about it 2 hours before the deadline.
+In the future, groups will benefit from this information.
+
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining tasks?
+
+The lab helpers have been very helpful.
 
 >> Any other comments?

@@ -106,7 +106,7 @@ frame_table_reclaim ()
 }
 
 void
-frame_table_destory ()
+frame_table_destroy ()
 {
   struct frame frame;
   struct hash_elem *e;

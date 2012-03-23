@@ -34,13 +34,13 @@ shutdown (void)
     {
     case SHUTDOWN_POWER_OFF:
       swap_destroy ();
-      frame_table_destory ();
+      frame_table_destroy ();
       shutdown_power_off ();
       break;
 
     case SHUTDOWN_REBOOT:
       swap_destroy ();
-      frame_table_destory ();
+      frame_table_destroy ();
       shutdown_reboot ();
       break;
 

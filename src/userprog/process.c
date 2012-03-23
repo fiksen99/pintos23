@@ -192,7 +192,7 @@ process_exit (void)
   lock_acquire (&file_lock);
   file_close (cur->file);
   lock_release (&file_lock);
-  //frame_table_destory (cur);
+  frame_table_reclaim ();
   //spt_destroy (&cur->supp_page_table);
 
   /* Destroy the current process's page directory and switch back

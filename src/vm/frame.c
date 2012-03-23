@@ -7,6 +7,7 @@
 #include "threads/synch.h"
 #include "vm/page.h"
 #include "vm/swap.h"
+#include "threads/vaddr.h"
 
 struct hash frame_table;
 //static struct frame *choose_frame_for_eviction ();
@@ -52,7 +53,7 @@ frame_get_page (enum palloc_flags flags, void *upage, bool writable)
     while ((evicted_page->index = swap_try_write (kpage_to_evict)) == -1)
     {
       //move page out of swap to filesys
-      printf("NOT ENOUGH SPACE IN SWAP.DSK\n\n\n");
+      //printf("NOT ENOUGH SPACE IN SWAP.DSK\n\n\n");
       
     }
     evicted_page->page_location = PG_SWAP;
@@ -84,20 +85,24 @@ frame_free_page (void *upage)
 }
 
 void
-frame_table_destory (struct thread *owner)
+frame_table_reclaim ()
 {
-  struct hash_iterator i;
-  hash_first (&i, &frame_table);
-  while (hash_next (&i))
+  struct frame frame;
+  struct hash_elem *e;
+
+  frame.owner = thread_current ();
+  lock_acquire (&frame_table_lock);
+
+  while ((e = hash_find (&frame_table, &frame.elem)) != NULL)
   {
-    struct frame *f = hash_entry (hash_cur (&i), struct frame, elem);
-    //printf ("%i", f->owner->tid);
-    if (f->owner == owner)
-    {
-      hash_delete (&frame_table, hash_cur (&i));
-      free (f);
-    }
+    struct frame *f = hash_entry (e, struct frame, elem);
+    hash_delete (&frame_table, e);
+    uint32_t *pd = thread_current ()->pagedir;
+    void *kpage = pagedir_get_page (pd, f->upage);
+    palloc_free_page (kpage);
+    free (f);
   }
+  lock_release (&frame_table_lock);
 }
 
 static struct frame *
@@ -124,7 +129,6 @@ choose_frame_for_eviction ()
   unsigned i;
   for (i = 0; hash_next (&it); i++)
   {
-    //is page to evict
     if (i == rand)
     {
       return hash_entry (hash_cur (&it), struct frame, elem);

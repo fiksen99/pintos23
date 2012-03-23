@@ -19,6 +19,7 @@
 #include "devices/shutdown.h"
 #include "userprog/syscall.h"
 #include "vm/page.h"
+#include "vm/frame.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -302,6 +303,7 @@ thread_exit (void)
   ASSERT (!intr_context ());
   close_thread_fds ();
   close_thread_mapids ();
+  //frame_table_destory (thread_current ());
 
 #ifdef USERPROG
   process_exit ();

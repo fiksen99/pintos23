@@ -108,6 +108,8 @@ struct thread
 
     struct file *file;
 
+    unsigned int stack_size;            /* Current stack size (in pages) */
+
     struct hash supp_page_table;       /* the suplemental page table to be used by this thread */
 
     /* Owned by thread.c. */

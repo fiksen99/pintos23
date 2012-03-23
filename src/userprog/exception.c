@@ -169,6 +169,16 @@ page_fault (struct intr_frame *f)
   struct page *supp_page = page_lookup (&curr->supp_page_table, fault_page);
   if (supp_page == NULL)
   {
+    if (fault_addr < PHYS_BASE && fault_addr > f->esp - 32 && curr->stack_size < STACK_MAX_SIZE)
+    {
+      struct page *new_stack_page = malloc (sizeof (struct page));
+      new_stack_page->addr = fault_page;
+      new_stack_page->writable = true;
+      new_stack_page->page_location = PG_ZERO;
+      hash_insert (&curr->supp_page_table, &new_stack_page->elem);
+      curr->stack_size++;
+      return;
+    }
     // page doesnt exist
     /* TODO: modify process_exit to free all new resources */
     //printf ("user accessed page that doesnt exist\n");
@@ -184,8 +194,7 @@ page_fault (struct intr_frame *f)
       lock_acquire (&curr->pagedir_lock);
       pagedir_set_page (curr->pagedir, supp_page->addr, kpage, supp_page->writable);
       lock_release (&curr->pagedir_lock);
-      return;
-      
+      return; 
     }
     else if (supp_page->page_location == PG_SWAP)
     {

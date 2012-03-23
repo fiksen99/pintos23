@@ -28,6 +28,15 @@ Sahil Jain <sdj09@doc.ic.ac.uk>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+We have added the following field in struct thread:
+
+struct hash supp_page_table;       
+
+This is the supplemental page table which is needed by the thread.
+
+The supplemental page table for each thread is initialised in load_segment in
+process.c.
+
 ---------------------------------------DO-------------------------------------
 
 ---- ALGORITHMS ----
@@ -80,6 +89,23 @@ do is use hash_find to obtain the frame.
 >> B1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
+
+In struct page, we have included the following fields:
+
+  enum
+    {
+      PG_MEM,
+      PG_SWAP,
+      PG_DISK,
+      PG_ZERO
+    } page_location;
+
+    struct file *file;  
+    off_t offset;
+
+
+
+
 
 ---------------------------------------DO-------------------------------------
 
@@ -142,7 +168,10 @@ do is use hash_find to obtain the frame.
 >> where your design falls along this continuum and why you chose to
 >> design it this way.
 
----------------------------------------DO-------------------------------------
+We have implemented different locks for different uses, for example, we have a 
+separate locks for files (file_lock), page tables (pagedir_lock), swapping
+(swap_lock), etc. By using these different locks, it was quite simple to
+achieve synchronisation, but we also maintained relatively high parallelism.
 
                            MEMORY MAPPED FILES
                            ===================
@@ -173,15 +202,13 @@ Static variable added in syscall.c:
 This variable allocated a new mapping so that each mapping within a process
 can be uniquely identified. It is incremented every time its allocated.
 
-Struct added in swap.h:
+Fields added in struct page in page.h:
 
-struct disk_data
-{
   struct file *file;
   off_t offset;                 /* offset from beginning of file */
-};
 
-This struct is used in the page struct. It contains the file which is in the
+
+These fields are used in the page struct. It contains the file which is in the
 disk memory and contains the offset. The offset is the position in the file from
 the starting position.
 

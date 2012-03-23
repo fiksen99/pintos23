@@ -28,10 +28,11 @@ void
 msg (const char *format, ...) 
 {
   va_list args;
-  printf("quiet: %x\n", (uint32_t) quiet);
 
-  if (quiet)
-    return;
+//  printf("quiet: %x\n", (uint32_t) quiet);
+
+//  if (quiet)
+//    return;
   va_start (args, format);
   vmsg (format, args, "\n");
   va_end (args);

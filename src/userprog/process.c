@@ -190,6 +190,7 @@ process_exit (void)
   uint32_t *pd;
 
   file_close (cur->file);
+//  spt_destroy (&cur->supp_page_table);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -548,8 +549,8 @@ setup_stack (void **esp)
       else
         frame_free_page (kpage);
     }
-    struct thread *curr = thread_current();
-    hash_insert (&curr->supp_page_table, &supp_page->elem);
+  struct thread *curr = thread_current();
+  hash_insert (&curr->supp_page_table, &supp_page->elem);
   return success;
 }
 

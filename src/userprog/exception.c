@@ -169,7 +169,7 @@ page_fault (struct intr_frame *f)
   struct page *supp_page = page_lookup (&curr->supp_page_table, fault_page);
   if (supp_page == NULL)
   {
-    if (fault_addr < PHYS_BASE && fault_addr > f->esp - 32 && curr->stack_size < STACK_MAX_SIZE)
+    if (fault_addr < PHYS_BASE && fault_addr >= f->esp - 32 && curr->stack_size < STACK_MAX_SIZE)
     {
       struct page *new_stack_page = malloc (sizeof (struct page));
       new_stack_page->addr = fault_page;

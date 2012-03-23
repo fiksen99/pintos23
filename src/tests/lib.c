@@ -31,8 +31,8 @@ msg (const char *format, ...)
 
 //  printf("quiet: %x\n", (uint32_t) quiet);
 
-  if (quiet)
-    return;
+  //if (quiet)
+  //  return;
   va_start (args, format);
   vmsg (format, args, "\n");
   va_end (args);

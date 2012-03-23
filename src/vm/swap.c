@@ -5,10 +5,10 @@
 #include "threads/synch.h"
 #include "kernel/debug.c"
 
-struct bitmap *swap_bitmap;
-struct block *block;
-struct swap_slot *swap_slot;
-struct lock swap_lock;
+static struct bitmap *swap_bitmap;
+static struct block *block;
+static struct swap_slot *swap_slot;
+static struct lock swap_lock;
 
 static bool is_swap_full (void);
 static size_t find_first_free_slot (void);

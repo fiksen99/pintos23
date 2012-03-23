@@ -15,7 +15,5 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (void);
 
-bool is_stack_access (void *, struct intr_frame *);
-void extend_stack (void);
 
 #endif /* userprog/process.h */

@@ -13,6 +13,7 @@
 #include <string.h>
 #include "syscall.h"
 #include "threads/synch.h"
+#include "threads/malloc.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -169,7 +170,7 @@ page_fault (struct intr_frame *f)
   struct page *supp_page = page_lookup (&curr->supp_page_table, fault_page);
   if (supp_page == NULL)
   {
-    if (fault_addr < PHYS_BASE && fault_addr > f->esp - 32 && curr->stack_size < STACK_MAX_SIZE)
+    if (fault_addr < PHYS_BASE && fault_addr >= f->esp - 32 && curr->stack_size < STACK_MAX_SIZE)
     {
       struct page *new_stack_page = malloc (sizeof (struct page));
       new_stack_page->addr = fault_page;
@@ -208,7 +209,6 @@ page_fault (struct intr_frame *f)
       // When reading from the file, need to store the file it was loaded from 
       // because if it ever needs to go back into a file then it should use the old   
       void * kpage = frame_get_page (PAL_USER);
-      printf ("page allocated: %p\n", kpage);
       lock_acquire (&file_lock);
       off_t read_bytes = file_read_at (supp_page->data.disk.file, kpage, PGSIZE,
         supp_page->data.disk.offset);

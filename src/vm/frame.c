@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include "random.h"
 #include "userprog/pagedir.h"
+#include "threads/synch.h"
+//#include <string.h>
+//#include <stdio.h>
 
 struct hash frame_table;
 //static struct frame *choose_frame_for_eviction ();
@@ -11,10 +14,13 @@ struct hash frame_table;
 static struct frame * lookup_frame (void *);
 static struct frame * choose_frame_for_eviction (void);
 
+struct lock frame_table_lock;
+
 void
 frame_init ()
 {
   hash_init (&frame_table, frame_hash_bytes, frame_hash_less, NULL);
+  lock_init (&frame_table_lock);
 }
 
 bool
@@ -45,7 +51,9 @@ frame_get_page (enum palloc_flags flags, void *upage, bool writable)
   struct frame *frame = malloc (sizeof (struct frame));
   frame->owner = thread_current ();
   frame->upage = upage;
+  lock_acquire (&frame_table_lock);
   hash_insert (&frame_table, &frame->elem);
+  lock_release (&frame_table_lock);
   pagedir_set_page (thread_current()->pagedir, upage, kpage, writable);
   return kpage;
 }
@@ -58,8 +66,27 @@ frame_free_page (void *upage)
   pagedir_clear_page (pd, upage);
   palloc_free_page (kpage);
   struct frame *f = lookup_frame (upage);
+  lock_acquire (&frame_table_lock);
   hash_delete (&frame_table, &f->elem);
+  lock_release (&frame_table_lock);
   free (f);
+}
+
+void
+frame_table_destory (struct thread *owner)
+{
+  struct hash_iterator i;
+  hash_first (&i, &frame_table);
+  while (hash_next (&i))
+  {
+    struct frame *f = hash_entry (hash_cur (&i), struct frame, elem);
+    //printf ("%i", f->owner->tid);
+    if (f->owner == owner)
+    {
+      hash_delete (&frame_table, hash_cur (&i));
+      free (f);
+    }
+  }
 }
 
 static struct frame *
@@ -69,7 +96,9 @@ lookup_frame (void *upage)
   struct hash_elem *e;
 
   frame.upage = upage;
+  lock_acquire (&frame_table_lock);
   e = hash_find (&frame_table, &frame.elem);
+  lock_release (&frame_table_lock);
   return e != NULL ? hash_entry (e, struct frame, elem) : NULL;
 }
 

@@ -65,7 +65,9 @@ do is use hash_find to obtain the frame.
 >> kernel and user virtual addresses that alias a single frame, or
 >> alternatively how do you avoid the issue?
 
----------------------------------------DO-------------------------------------
+We only access frames using user virtual memory addresses, which allows us to
+avoid coordinating accessed and dirty bits between kernel and user virtual
+addresses.
 
 ---- SYNCHRONIZATION ----
 

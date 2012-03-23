@@ -8,6 +8,7 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+#include "userprog/syscall.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -188,8 +189,11 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  lock_acquire (&file_lock);
   file_close (cur->file);
-//  spt_destroy (&cur->supp_page_table);
+  lock_release (&file_lock);
+  //frame_table_destory (cur);
+  //spt_destroy (&cur->supp_page_table);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

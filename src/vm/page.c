@@ -26,7 +26,7 @@ spt_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
 
 
 void
-spt_destroy (struct hash *spt)
+spt_destroy (struct hash *spt) // TODO call this
 {
   struct hash_iterator i;
   hash_first (&i, spt);

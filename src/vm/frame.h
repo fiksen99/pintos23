@@ -6,10 +6,6 @@
 #include "vm/page.h"
 #include "threads/palloc.h"
 
-/*#define MAX_RANK 3
-#define MED_RANK 2
-#define MIN_RANK 1*/
-
 struct frame
 {
   void *addr;               /* Page address. */

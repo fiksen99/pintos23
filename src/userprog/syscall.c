@@ -41,7 +41,7 @@ static void check_valid_string (const uint32_t addr, uint32_t esp);
 static void check_valid_buffer (const uint32_t addr, uint32_t esp, const unsigned int size);
 
 static struct list fd_list;
-static int new_fd = 2; //fd to be allocated.
+static int new_fd = 2; // fd to be allocated.
 
 struct list mapid_list;
 static mapid_t new_mapid = 0;
@@ -105,7 +105,6 @@ syscall_handler (struct intr_frame *f)
       result = execute_close ((int) *arg);
     else
     {
-//      printf("execute_munmap\n");
       result = (execute_munmap ((mapid_t) *arg) == NULL) ? -1 : 1;
     }
   }
@@ -458,6 +457,7 @@ execute_munmap (mapid_t mapid)
   struct file *f = mapid_elem->file;
   if (f == NULL)
     return NULL;
+
   // TODO: what if the file no longer exists
 
   void *addr = mapid_elem->addr;
@@ -478,32 +478,24 @@ execute_munmap (mapid_t mapid)
     ASSERT (p != NULL);
     if (p->page_location == PG_SWAP)
     {
-      // TODO: read page from swap partition and write it back to the file
+      void *kpage = palloc_get_page (0);
+      swap_read (p->index, kpage);
+      file_write_at (f, kpage, PGSIZE, offset);
+      palloc_free_page (kpage);
     }
     else if (p->page_location == PG_ZERO)
     {
-      void *zero_page = frame_get_page (PAL_ZERO);
-      file_write_at (f, addr + offset, PGSIZE, offset);
-      frame_free_page (zero_page);
+      void *zero_page = palloc_get_page (PAL_ZERO);
+      file_write_at (f, zero_page, PGSIZE, offset);
+      palloc_free_page (zero_page);
     }
     else if (p->page_location == PG_MEM)
     {
       if (pagedir_is_dirty (t->pagedir, addr + offset))
       {
-        if (offset == (filesize / PGSIZE) * PGSIZE)
-        {
-          file_write_at (f, addr + offset, filesize - offset, offset);
-        }
-        else
-        {
-          file_write_at (f, addr + offset, PGSIZE, offset);
-        }
+        file_write_at (f, addr + offset, PGSIZE, offset);
       }
-      // TODO: remove struct frame associated with this frame
-      /*struct frame *frame = lookup_frame (addr + offset);
-      hash_delete (&frame_table, &frame->elem);
-      free (frame);*/
-      pagedir_clear_page (t->pagedir, addr + offset);
+      frame_free_page (addr + offset);
     }
     hash_delete (&t->supp_page_table, &p->elem);
     free (p);

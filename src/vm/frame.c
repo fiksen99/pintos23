@@ -1,8 +1,12 @@
 #include "vm/frame.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
+#include "vm/swap.c"
+#include <stdlib.h>
 
 struct hash frame_table;
+static struct frame *choose_frame_for_eviction ();
+static void perform_eviction ();
 
 void
 frame_init ()
@@ -70,10 +74,39 @@ lookup_frame (void *addr)
 
 //TODO: currently assumes always free frame.
 struct frame *
-get_free_frame (void)
+get_free_frame ()
 {
+  if (/* No free frame available */)
+  {
+    struct frame *frame = choose_frame_for_eviction ();
+    perform_eviction ();
+  }
   struct frame *frame = malloc (sizeof (struct frame));
   frame->owner_tid = thread_current ()->tid;
   hash_insert (&frame_table, &frame->elem);
+
   return frame;
+}
+
+//TODO currently chooses randomly. change so follows our algorithm.
+static struct frame *
+choose_frame_for_eviction ()
+{
+  ASSERT (!hash_empty (&frame_table));
+  struct hash_iterator it;
+  return hash_entry (hash_cur (&it), struct frame, elem);
+  /* ------------------
+  hash_first (&it, &frame_table);
+  while (hash_next (&it))
+  {
+    
+  }
+   ------------------ */
+}
+
+/* performs eviction */
+static void
+perform_eviction ()
+{
+  
 }

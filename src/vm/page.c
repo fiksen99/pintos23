@@ -26,16 +26,19 @@ spt_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
 
 
 void
-spt_destroy (struct hash *spt) // TODO call this
+spt_destroy (struct hash *spt)
 {
-  struct hash_iterator i;
-  hash_first (&i, spt);
-  while (hash_next (&i))
+
+  struct page page;
+  struct hash_elem *e;
+
+  while ((e = hash_find (spt, &page.elem)) != NULL)
   {
-    struct page *p = hash_entry (hash_cur (&i), struct page, elem);
+    struct page *p = hash_entry (e, struct page, elem);
     frame_free_page (p->addr);
+    free (p);
   }
-  free (spt);
+  
 }
 
 struct page *

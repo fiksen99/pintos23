@@ -75,6 +75,8 @@ frame_free_page (void *upage)
 {
   uint32_t *pd = thread_current ()->pagedir;
   void *kpage = pagedir_get_page (pd, upage);
+  if (kpage == NULL)
+    return;
   pagedir_clear_page (pd, upage);
   palloc_free_page (kpage);
   struct frame *f = lookup_frame (upage);

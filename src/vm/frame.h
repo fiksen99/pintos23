@@ -12,8 +12,8 @@
 
 struct frame
 {
-  void *addr;               /* Page address. */
-  tid_t owner_tid;
+  void *upage;               /* Page address. */
+  struct thread *owner;     /* Owner of the frame */
   struct hash_elem elem;
 };
 
@@ -26,9 +26,7 @@ bool frame_hash_less (const struct hash_elem *a, const struct hash_elem *b,
 
 unsigned frame_hash_bytes (const struct hash_elem *elem, void *aux);
 
-void *frame_get_page (enum palloc_flags flags);
+void *frame_get_page (enum palloc_flags flags, void*, bool);
 void frame_free_page (void *page);
-struct frame * lookup_frame (void *addr);
-struct frame * get_frame (void *);
 
 #endif

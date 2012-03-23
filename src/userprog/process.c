@@ -537,8 +537,9 @@ setup_stack (void **esp)
   bool success = false;
 
   struct page *supp_page = malloc (sizeof (struct page));
-  supp_page->addr = (void *)PHYS_BASE - PGSIZE;
-  kpage = frame_get_page (PAL_USER | PAL_ZERO);
+  void * upage = (void *)PHYS_BASE - PGSIZE;
+  supp_page->addr = upage;
+  frame_get_page (PAL_USER | PAL_ZERO, upage, true);
   supp_page->page_location = PG_MEM;
   if (kpage != NULL) 
     {
@@ -546,7 +547,7 @@ setup_stack (void **esp)
       if (success)
         *esp = PHYS_BASE;
       else
-        frame_free_page (kpage);
+        frame_free_page (upage);
     }
   struct thread *curr = thread_current();
   hash_insert (&curr->supp_page_table, &supp_page->elem);

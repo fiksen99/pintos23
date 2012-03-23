@@ -2,11 +2,15 @@
 #include "threads/palloc.h"
 #include "threads/malloc.h"
 #include <stdlib.h>
+#include "random.h"
+#include "userprog/pagedir.h"
 
 struct hash frame_table;
 //static struct frame *choose_frame_for_eviction ();
 //static void perform_eviction ();
-static void evict_page (void);
+static struct frame * get_frame (void *, void *);
+static struct frame * lookup_frame (void *);
+static struct frame * choose_frame_for_eviction (void);
 
 void
 frame_init ()
@@ -18,88 +22,79 @@ bool
 frame_hash_less (const struct hash_elem *a, const struct hash_elem *b,
                  void *aux UNUSED)
 {
-  return hash_entry (a, struct frame, elem)->addr
-         < hash_entry (b, struct frame, elem)->addr;
+  return hash_entry (a, struct frame, elem)->upage
+         < hash_entry (b, struct frame, elem)->upage;
 }
 
 unsigned
 frame_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
 {
   struct frame *frame = hash_entry (elem, struct frame, elem);
-  return hash_bytes (frame->addr, sizeof(void *));
+  return hash_bytes (frame->upage, sizeof(void *));
 }
 
 void *
-frame_get_page (enum palloc_flags flags)
+frame_get_page (enum palloc_flags flags, void *upage, bool writable)
 {
   void *kpage;
   while ((kpage = palloc_get_page (flags)) == NULL)
   {
     //no free frames - evict
-    evict_page();
+    struct frame *frame = choose_frame_for_eviction ();
+    frame_free_page (frame->upage);
   }
-  get_frame (kpage);
-  return kpage;
+  get_frame (upage);
+  pagedir_set_page (thread_current()->pd, upage, kpage, writable);
 }
 
 void 
-frame_free_page (void *page)
+frame_free_page (void *upage)
 {
-  printf ("page to free: %p\n", page);
-  palloc_free_page (page);
-  struct frame *f = lookup_frame (page);
+  struct pagedir *pd = thread_current ()->pagedir;
+  void *kpage = pagedir_get_page (pd, upage);
+  pagedir_clear_page (pd, upage);
+  palloc_free_page (kpage);
+  struct frame *f = lookup_frame (upage);
   hash_delete (&frame_table, &f->elem);
   free (f);
 }
 
-struct frame *
-lookup_frame (void *addr)
+static struct frame *
+lookup_frame (void *upage)
 {
   struct frame frame;
   struct hash_elem *e;
 
-  frame.addr = addr;
+  frame.upage = upage;
   e = hash_find (&frame_table, &frame.elem);
   return e != NULL ? hash_entry (e, struct frame, elem) : NULL;
 }
 
-//TODO: currently assumes always free frame.
-struct frame *
-get_frame (void *kpage)
+static struct frame *
+get_frame (void *upage)
 {
   struct frame *frame = malloc (sizeof (struct frame));
   frame->owner_tid = thread_current ()->tid;
-  frame->addr = kpage;
+  frame->upage = upage;
   hash_insert (&frame_table, &frame->elem);
-
   return frame;
 }
 
-static void
-evict_page ()
-{
-  //void *kpage = choose_frame()
-}
-
-//TODO currently chooses randomly. change so follows our algorithm.
-/*static struct frame *
+static struct frame *
 choose_frame_for_eviction ()
 {
   ASSERT (!hash_empty (&frame_table));
+  size_t size = hash_size (&frame_table);
+  unsigned rand = random_ulong () % size;
   struct hash_iterator it;
-  return hash_entry (hash_cur (&it), struct frame, elem);
-   ------------------
   hash_first (&it, &frame_table);
-  while (hash_next (&it))
+  unsigned i;
+  for (i = 0; hash_next (&it); i++)
   {
-    
+    //is page to evict
+    if (i == rand)
+    {
+      return hash_entry (hash_cur (&i), struct frame, elem);
+    }
   }
-   ------------------ 
-//}
-
- performs eviction 
-static void
-perform_eviction ()
-{
-  
-}*/
+}

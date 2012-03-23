@@ -485,16 +485,19 @@ execute_munmap (mapid_t mapid)
     }
     else if (p->page_location == PG_MEM)
     {
-      // TODO: read dirty bit and only write back to file if it has been modified
-      if (offset == (filesize / PGSIZE) * PGSIZE)
+      if (pagedir_is_dirty (t->pagedir, addr + offset))
       {
-        file_write_at (f, addr + offset, filesize - offset, offset);
+        if (offset == (filesize / PGSIZE) * PGSIZE)
+        {
+          file_write_at (f, addr + offset, filesize - offset, offset);
+        }
+        else
+        {
+          file_write_at (f, addr + offset, PGSIZE, offset);
+        }
       }
-      else
-      {
-        file_write_at (f, addr + offset, PGSIZE, offset);
-      }/*
-      struct frame *frame = lookup_frame (addr + offset);
+      // TODO: remove struct frame associated with this frame
+      /*struct frame *frame = lookup_frame (addr + offset);
       hash_delete (&frame_table, &frame->elem);
       free (frame);*/
       pagedir_clear_page (t->pagedir, addr + offset);

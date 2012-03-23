@@ -190,8 +190,11 @@ page_fault (struct intr_frame *f)
     //page exists, needs to be loaded into frame table
     if (supp_page->page_location == PG_ZERO)
     {
-      void * kpage = frame_get_page (PAL_USER|PAL_ZERO);
+      void * kpage = palloc_get_page (PAL_USER|PAL_ZERO);
       supp_page->page_location = PG_MEM;
+      struct frame *frame = get_free_frame ();
+      frame->addr = kpage;
+      supp_page->data.mem.frame = frame;
       lock_acquire (&curr->pagedir_lock);
       pagedir_set_page (curr->pagedir, supp_page->addr, kpage, supp_page->writable);
       lock_release (&curr->pagedir_lock);
@@ -208,7 +211,8 @@ page_fault (struct intr_frame *f)
     {
       // When reading from the file, need to store the file it was loaded from 
       // because if it ever needs to go back into a file then it should use the old   
-      void * kpage = frame_get_page (PAL_USER);
+      void * kpage = palloc_get_page (PAL_USER);
+      //printf ("page allocated: %p\n", kpage);
       lock_acquire (&file_lock);
       off_t read_bytes = file_read_at (supp_page->data.disk.file, kpage, PGSIZE,
         supp_page->data.disk.offset);
@@ -216,6 +220,9 @@ page_fault (struct intr_frame *f)
       off_t zeroes = PGSIZE - read_bytes;
       memset(kpage + read_bytes, 0, zeroes);
       supp_page->page_location = PG_MEM;
+      struct frame *frame = get_free_frame ();
+      frame->addr = kpage;
+      supp_page->data.mem.frame = frame;
       lock_acquire (&curr->pagedir_lock);
       pagedir_set_page (curr->pagedir, supp_page->addr, kpage,
         supp_page->writable);

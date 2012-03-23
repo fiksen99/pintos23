@@ -429,17 +429,3 @@ remove_elem (struct hash *h, struct hash_elem *e)
   h->elem_cnt--;
   list_remove (&e->list_elem);
 }
-
-/* Prints all elements of hash table */
-void
-print_elem (struct hash_elem *elem, void *aux UNUSED)
-{
-  struct page *pg = hash_entry (elem, struct page, elem);
-  printf ("%p\n", vtop (pg->addr));
-}
-
-void
-print_hash_table (struct hash *table)
-{
-  hash_apply (table, print_elem);
-}

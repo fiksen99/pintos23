@@ -435,8 +435,8 @@ execute_mmap (int fd, void *addr)
     p->addr = addr + offset;
     p->page_location = PG_DISK;
     p->writable = true;
-    p->data.disk.file = file;
-    p->data.disk.offset = offset;
+    p->file = file;
+    p->offset = offset;
     hash_insert (&t->supp_page_table, &p->elem);
   }
 

@@ -510,8 +510,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     } else
     {
       supp_page->page_location = PG_DISK;
-      supp_page->data.disk.file = file;
-      supp_page->data.disk.offset = ofs;
+      supp_page->file = file;
+      supp_page->offset = ofs;
     }
     supp_page->writable = writable;
     hash_insert (&curr->supp_page_table, &supp_page->elem);
@@ -540,7 +540,6 @@ setup_stack (void **esp)
   supp_page->addr = (void *)PHYS_BASE - PGSIZE;
   kpage = frame_get_page (PAL_USER | PAL_ZERO);
   supp_page->page_location = PG_MEM;
-  supp_page->data.mem.frame = (void*)kpage;
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);

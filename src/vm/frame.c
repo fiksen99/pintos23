@@ -6,6 +6,7 @@
 struct hash frame_table;
 //static struct frame *choose_frame_for_eviction ();
 //static void perform_eviction ();
+static void evict_page (void);
 
 void
 frame_init ()
@@ -31,14 +32,13 @@ frame_hash_bytes (const struct hash_elem *elem, void *aux UNUSED)
 void *
 frame_get_page (enum palloc_flags flags)
 {
-  void *kpage = palloc_get_page (flags);
-  if (kpage == NULL)
+  void *kpage;
+  while ((kpage = palloc_get_page (flags)) == NULL)
   {
-    return NULL;
+    //no free frames - evict
+    evict_page();
   }
-  // Always in mem after a succesful palloc
-  struct frame *frame = get_free_frame ();
-  frame->addr = kpage;
+  get_frame (kpage);
   return kpage;
 }
 
@@ -65,18 +65,20 @@ lookup_frame (void *addr)
 
 //TODO: currently assumes always free frame.
 struct frame *
-get_free_frame ()
+get_frame (void *kpage)
 {
-//  if (/* No free frame available */)
-//  {
-//    struct frame *frame = choose_frame_for_eviction ();
-//    perform_eviction ();
-//  }
   struct frame *frame = malloc (sizeof (struct frame));
   frame->owner_tid = thread_current ()->tid;
+  frame->addr = kpage;
   hash_insert (&frame_table, &frame->elem);
 
   return frame;
+}
+
+static void
+evict_page ()
+{
+  //void *kpage = choose_frame()
 }
 
 //TODO currently chooses randomly. change so follows our algorithm.

@@ -16,6 +16,7 @@
 #include "threads/vaddr.h"
 #include "vm/frame.h"
 #include "vm/page.h"
+#include "userprog/exception.h"
 
 static void syscall_handler (struct intr_frame *);
 static void execute_halt (void);
@@ -35,7 +36,9 @@ static struct list_elem *execute_munmap (mapid_t);
 static mapid_t execute_mmap (int, void *);
 static struct file *find_file_from_fd (int);
 struct mapid_elems *find_struct_from_mapid (mapid_t);
-static void check_valid_access (const uint32_t addr);
+static void check_valid_access (const uint32_t addr, uint32_t esp);
+static void check_valid_string (const uint32_t addr, uint32_t esp);
+static void check_valid_buffer (const uint32_t addr, uint32_t esp, const unsigned int size);
 
 static struct list fd_list;
 static int new_fd = 2; //fd to be allocated.
@@ -58,7 +61,7 @@ static void
 syscall_handler (struct intr_frame *f)
 {
   uint32_t *stackptr = f->esp;
-  check_valid_access ((uint32_t) stackptr);
+  check_valid_access ((uint32_t) stackptr, (uint32_t) stackptr);
   int syscall = *stackptr;
   uint32_t result; // return value stored in eax
   if (syscall == SYS_HALT) /* ZERO arguments */
@@ -79,19 +82,19 @@ syscall_handler (struct intr_frame *f)
     }
     else if (syscall == SYS_EXEC)
     {
-	    check_valid_access (*arg);
+	    check_valid_string (*arg, (uint32_t) stackptr);
       result = execute_exec ((char *) *arg);
     }
     else if (syscall == SYS_WAIT)
       result = execute_wait ((tid_t) *arg);
     else if (syscall == SYS_REMOVE)
     {
-	    check_valid_access (*arg);
+	    check_valid_string (*arg, (uint32_t) stackptr);
       result = execute_remove ((char *) *arg);
     }
     else if (syscall == SYS_OPEN)
     {
-	    check_valid_access (*arg);
+	    check_valid_string (*arg, (uint32_t) stackptr);
       result = execute_open ((char *) *arg);
     }
     else if (syscall == SYS_FILESIZE)
@@ -112,7 +115,7 @@ syscall_handler (struct intr_frame *f)
     unsigned *arg2 = stackptr + 2;
     if (syscall == SYS_CREATE)
     {
-	    check_valid_access (*arg1);
+	    check_valid_string (*arg1, (uint32_t) stackptr);
       result = execute_create ((char *) *arg1, *arg2);
     }
     else if (syscall == SYS_SEEK)
@@ -128,8 +131,8 @@ syscall_handler (struct intr_frame *f)
   {
     int fd = *(stackptr + 1);
     void *buffer = (void*) *(stackptr + 2);
-	  check_valid_access ((uint32_t) buffer);
     unsigned size = *(stackptr + 3);
+	  check_valid_buffer ((uint32_t) buffer, (uint32_t) stackptr, size);
     if (syscall == SYS_WRITE)
       result = execute_write (fd, buffer, size);
     else
@@ -552,12 +555,42 @@ find_struct_from_mapid (mapid_t mapid)
 
 /*checks user memory access is valid*/
 static void
-check_valid_access (const uint32_t addr)
+check_valid_access (const uint32_t addr, uint32_t stackptr)
 {
-  if( !is_user_vaddr((void*)addr) ||
-     pagedir_get_page( thread_current()->pagedir, (void*)addr ) == NULL ) 
+  if (!is_user_vaddr((void*)addr)) 
   {
     thread_exit();
+  }
+  while (pagedir_get_page (thread_current()->pagedir, (void*) addr) == NULL)
+  {
+    handle_page_fault ((void *) addr, stackptr);
+  }
+}
+
+/* Checks that a buffer is valid */
+static void
+check_valid_buffer (const uint32_t addr, uint32_t stackptr, const unsigned int size)
+{
+  void * check_addr;
+  for (check_addr = pg_round_down ((void *) addr); check_addr < (void *) (addr + size); check_addr += PGSIZE)
+  {
+    check_valid_access ((uint32_t) check_addr, stackptr);
+  }
+}
+
+/* Checks that a string passed by the user is valid */
+static void
+check_valid_string (const uint32_t addr, uint32_t stackptr)
+{
+  char *check_addr = (char *) addr;
+  while (true)
+  {
+    check_valid_access ((uint32_t) check_addr, stackptr);
+    if (*check_addr == '\0')
+    {
+      return;
+    }
+    check_addr++;
   }
 }
 

@@ -138,6 +138,8 @@ page_fault (struct intr_frame *f)
   void *fault_addr;  /* Fault address. */
 //  bool valid;        /* True: fault_addr is a valid memory reference */
 
+  uint32_t esp = (uint32_t) f->esp;
+
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
      data.  It is not necessarily the address of the instruction
@@ -164,13 +166,23 @@ page_fault (struct intr_frame *f)
   if (!user)
     PANIC ("non user code causing page fault");
 
+  if (!not_present)
+    thread_exit();
+
+  handle_page_fault (fault_addr, esp);
+}
+
+void
+handle_page_fault (void *fault_addr, uint32_t esp)
+{
   struct thread *curr = thread_current();
   void *fault_page = pg_round_down (fault_addr);
 //  printf ("%p ", fault_addr);
   struct page *supp_page = page_lookup (&curr->supp_page_table, fault_page);
   if (supp_page == NULL)
   {
-    if (fault_addr < PHYS_BASE && fault_addr >= f->esp - 32 && curr->stack_size < STACK_MAX_SIZE)
+    // only adds 1 page per fault, possibly inefficient if many pages need to be added
+    if (fault_addr < PHYS_BASE && (uint32_t) fault_addr >= esp - 32 && curr->stack_size < STACK_MAX_SIZE)
     {
       struct page *new_stack_page = malloc (sizeof (struct page));
       new_stack_page->addr = fault_page;

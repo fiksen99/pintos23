@@ -17,7 +17,7 @@ struct mem_data
 
 struct swap_data
 {
-
+  int index;
 };
 
 struct disk_data
@@ -61,6 +61,6 @@ void spt_init (struct hash *spt);
 bool spt_hash_less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 unsigned spt_hash_bytes (const struct hash_elem *e, void *aux);
 void spt_destroy (struct hash *spt);
-struct page * page_lookup (struct hash *, const void *address);
+struct page *page_lookup (struct hash *, void *address);
 
 #endif

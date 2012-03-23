@@ -435,7 +435,7 @@ void
 print_elem (struct hash_elem *elem, void *aux UNUSED)
 {
   struct page *pg = hash_entry (elem, struct page, elem);
-  printf ("%p\n", vtop (pg->addr));
+  printf ("%p\n", (void *) (vtop (pg->addr)));
 }
 
 void

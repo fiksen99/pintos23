@@ -86,16 +86,16 @@ choose_frame_for_eviction ()
   ASSERT (!hash_empty (&frame_table));
   struct hash_iterator it;
   return hash_entry (hash_cur (&it), struct frame, elem);
-  /* ------------------
+   ------------------
   hash_first (&it, &frame_table);
   while (hash_next (&it))
   {
     
   }
-   ------------------ */
+   ------------------ 
 //}
 
-/* performs eviction 
+ performs eviction 
 static void
 perform_eviction ()
 {

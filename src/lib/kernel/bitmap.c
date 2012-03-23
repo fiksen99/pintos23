@@ -219,8 +219,7 @@ void
 bitmap_set_multiple (struct bitmap *b, size_t start, size_t cnt, bool value) 
 {
   size_t i;
-  
-  ASSERT (b != NULL);
+    ASSERT (b != NULL);
   ASSERT (start <= b->bit_cnt);
   ASSERT (start + cnt <= b->bit_cnt);
 

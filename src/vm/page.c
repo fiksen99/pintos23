@@ -39,9 +39,9 @@ spt_destroy (struct hash *spt)
 }
 
 struct page *
-page_lookup (struct hash *spt, const void *address)
+page_lookup (struct hash *spt, void *address)
 {
-  struct page p = {.addr = address};
+  struct page p = { .addr = address };
   struct hash_elem *e;
   e = hash_find (spt, &p.elem);
   return e != NULL ? hash_entry (e, struct page, elem) : NULL;

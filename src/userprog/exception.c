@@ -208,6 +208,7 @@ page_fault (struct intr_frame *f)
       // When reading from the file, need to store the file it was loaded from 
       // because if it ever needs to go back into a file then it should use the old   
       void * kpage = frame_get_page (PAL_USER);
+      printf ("page allocated: %p\n", kpage);
       lock_acquire (&file_lock);
       off_t read_bytes = file_read_at (supp_page->data.disk.file, kpage, PGSIZE,
         supp_page->data.disk.offset);
@@ -219,7 +220,6 @@ page_fault (struct intr_frame *f)
       pagedir_set_page (curr->pagedir, supp_page->addr, kpage,
         supp_page->writable);
       lock_release (&curr->pagedir_lock);
-      printf("*fault_addr: %x\n", *((uint32_t *)fault_addr));
       return;
     }
     // possibly reached if two threads page fault on the same page, one has already

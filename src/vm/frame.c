@@ -1,12 +1,11 @@
 #include "vm/frame.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
-#include "vm/swap.c"
 #include <stdlib.h>
 
 struct hash frame_table;
-static struct frame *choose_frame_for_eviction ();
-static void perform_eviction ();
+//static struct frame *choose_frame_for_eviction ();
+//static void perform_eviction ();
 
 void
 frame_init ()
@@ -55,6 +54,7 @@ frame_get_page (enum palloc_flags flags)
 void 
 frame_free_page (void *page)
 {
+  printf ("page to free: %p\n", page);
   palloc_free_page (page);
   struct frame *f = lookup_frame (page);
   hash_delete (&frame_table, &f->elem);
@@ -76,11 +76,11 @@ lookup_frame (void *addr)
 struct frame *
 get_free_frame ()
 {
-  if (/* No free frame available */)
-  {
-    struct frame *frame = choose_frame_for_eviction ();
-    perform_eviction ();
-  }
+//  if (/* No free frame available */)
+//  {
+//    struct frame *frame = choose_frame_for_eviction ();
+//    perform_eviction ();
+//  }
   struct frame *frame = malloc (sizeof (struct frame));
   frame->owner_tid = thread_current ()->tid;
   hash_insert (&frame_table, &frame->elem);
@@ -89,7 +89,7 @@ get_free_frame ()
 }
 
 //TODO currently chooses randomly. change so follows our algorithm.
-static struct frame *
+/*static struct frame *
 choose_frame_for_eviction ()
 {
   ASSERT (!hash_empty (&frame_table));
@@ -102,11 +102,11 @@ choose_frame_for_eviction ()
     
   }
    ------------------ */
-}
+//}
 
-/* performs eviction */
+/* performs eviction 
 static void
 perform_eviction ()
 {
   
-}
+}*/

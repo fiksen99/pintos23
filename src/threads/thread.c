@@ -512,7 +512,6 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init (&t->children);
   sema_init (&t->exec_sema, 0);
   lock_init (&t->pagedir_lock);
-  //CANT CALL THIS HERE, called by thead_init before palloc)init has been called!!!!!!
 
   t->magic = THREAD_MAGIC;
 

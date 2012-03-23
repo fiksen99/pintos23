@@ -5,8 +5,8 @@
 #include "random.h"
 #include "userprog/pagedir.h"
 #include "threads/synch.h"
-//#include <string.h>
-//#include <stdio.h>
+#include "vm/page.h"
+#include "vm/swap.h"
 
 struct hash frame_table;
 //static struct frame *choose_frame_for_eviction ();
@@ -42,11 +42,22 @@ void *
 frame_get_page (enum palloc_flags flags, void *upage, bool writable)
 {
   void *kpage;
+  struct thread *curr = thread_current ();
   while ((kpage = palloc_get_page (flags)) == NULL)
   {
     //no free frames - evict
-    struct frame *frame = choose_frame_for_eviction ();
-    frame_free_page (frame->upage);
+    struct frame *evicted_frame = choose_frame_for_eviction ();
+    struct page *evicted_page = page_lookup (&curr->supp_page_table, evicted_frame->upage);
+    void *kpage_to_evict = pagedir_get_page (curr->pagedir, evicted_frame->upage);
+    while ((evicted_page->index = swap_try_write (kpage_to_evict)) == -1)
+    {
+      //move page out of swap to filesys
+      printf("NOT ENOUGH SPACE IN SWAP.DSK\n\n\n");
+      
+    }
+    evicted_page->page_location = PG_SWAP;
+    frame_free_page (evicted_frame->upage);
+    
   }
   struct frame *frame = malloc (sizeof (struct frame));
   frame->owner = thread_current ();
@@ -119,4 +130,5 @@ choose_frame_for_eviction ()
       return hash_entry (hash_cur (&it), struct frame, elem);
     }
   }
+  NOT_REACHED();
 }

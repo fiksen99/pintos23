@@ -6,6 +6,8 @@
 #include "devices/timer.h"
 #include "threads/io.h"
 #include "threads/thread.h"
+#include "vm/swap.h"
+#include "vm/frame.h"
 #ifdef USERPROG
 #include "userprog/exception.h"
 #endif
@@ -31,10 +33,14 @@ shutdown (void)
   switch (how)
     {
     case SHUTDOWN_POWER_OFF:
+      swap_destroy ();
+      frame_table_destory ();
       shutdown_power_off ();
       break;
 
     case SHUTDOWN_REBOOT:
+      swap_destroy ();
+      frame_table_destory ();
       shutdown_reboot ();
       break;
 

@@ -105,6 +105,26 @@ frame_table_reclaim ()
   lock_release (&frame_table_lock);
 }
 
+void
+frame_table_destory ()
+{
+  struct frame frame;
+  struct hash_elem *e;
+
+  lock_acquire (&frame_table_lock);
+
+  while ((e = hash_find (&frame_table, &frame.elem)) != NULL)
+  {
+    struct frame *f = hash_entry (e, struct frame, elem);
+    hash_delete (&frame_table, e);
+    uint32_t *pd = thread_current ()->pagedir;
+    void *kpage = pagedir_get_page (pd, f->upage);
+    palloc_free_page (kpage);
+    free (f);
+  }
+  lock_release (&frame_table_lock);
+}
+
 static struct frame *
 lookup_frame (void *upage)
 {

@@ -25,5 +25,6 @@ unsigned frame_hash_bytes (const struct hash_elem *elem, void *aux);
 void *frame_get_page (enum palloc_flags flags, void*, bool);
 void frame_free_page (void *page);
 void frame_table_reclaim (void);
+void frame_table_destory (void);
 
 #endif
